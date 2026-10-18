@@ -1,15 +1,25 @@
 [CmdletBinding(SupportsShouldProcess=$true)]
-param([Parameter(Mandatory=$true)][string]$ProfileDir,[Parameter(Mandatory=$true)][string]$PackageDir,[switch]$AuthorizedDisposableProfile)
+param([Parameter(Mandatory=$true)][string]$ProfileDir,[Parameter(Mandatory=$true)][string]$PackageDir,[switch]$AuthorizedDisposableProfile,[string]$ExpectedInstalledSha256,[switch]$ExpectAbsent)
 $ErrorActionPreference='Stop'
 $profile=[IO.Path]::GetFullPath($ProfileDir)
 $source=Join-Path $PackageDir 'FrontlineMap.dll';$metadata=Get-Content (Join-Path $PackageDir 'package.json') -Raw | ConvertFrom-Json
 if((Get-FileHash $source).Hash -ne $metadata.dll_sha256){throw 'Package fingerprint mismatch.'}
 if(-not(Test-Path (Join-Path $profile 'BepInEx/core/BepInEx.dll'))){throw 'Profile must already contain its authorized loader; this script does not install loaders.'}
 $plugins=Join-Path $profile 'BepInEx/plugins'
+$destination=Join-Path $plugins 'FrontlineMap.dll'
+if($ExpectAbsent -and $ExpectedInstalledSha256){throw 'Choose expected absence or expected existing hash, not both.'}
+if(-not $ExpectAbsent -and -not $ExpectedInstalledSha256){throw 'Specify -ExpectAbsent or -ExpectedInstalledSha256 before preview/deployment.'}
+function Test-ExpectedInstalledState {
+ if($ExpectAbsent){if(Test-Path -LiteralPath $destination){throw 'Unexpected existing FrontlineMap.dll; no files changed.'}}
+ else{if($ExpectedInstalledSha256 -notmatch '^[0-9a-fA-F]{64}$' -or -not(Test-Path -LiteralPath $destination) -or (Get-FileHash $destination).Hash -ne $ExpectedInstalledSha256){throw 'Installed DLL does not match expected hash; no files changed.'}}
+}
+Test-ExpectedInstalledState
 $duplicates=@(Get-ChildItem $plugins -Filter '*Frontline*.dll' -Recurse -ErrorAction SilentlyContinue | Where-Object {$_.FullName -ne (Join-Path $plugins 'FrontlineMap.dll')})
 if($duplicates.Count -gt 0){throw 'Other Frontline DLLs found. Resolve duplicates manually; nothing was changed.'}
 if(-not $WhatIfPreference -and -not $AuthorizedDisposableProfile){throw 'Actual deployment requires -AuthorizedDisposableProfile; normal profile is outside this task authority.'}
-if($PSCmdlet.ShouldProcess($profile,'Back up tracked files and install FrontlineMap development candidate')){
+Write-Output "Candidate SHA256: $($metadata.dll_sha256); expected existing: $ExpectedInstalledSha256; expect absent: $ExpectAbsent; destination: $destination"
+if($PSCmdlet.ShouldProcess($profile,'Back up tracked DLL/config state and install the fingerprinted FrontlineMap development candidate')){
+ Test-ExpectedInstalledState
  $backup=Join-Path $profile ('FrontlineMap-rollback-'+[Guid]::NewGuid().ToString('N'));New-Item -ItemType Directory $backup | Out-Null
  $records=@();$index=0
  foreach($relative in @('BepInEx/plugins/FrontlineMap.dll','BepInEx/config/com.noms.frontlinemap.cfg','BepInEx/config/com.yuulf.frontlinemap.cfg')){

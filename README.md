@@ -39,3 +39,5 @@ Diagnostics.Enabled logs capture/allocate/stamp/raster/copy/native-upload timing
 
 ## Installation and rollback
 Use only an explicitly authorized disposable profile. See docs/INSTALL_AND_ROLLBACK.md. No normal profile was changed during development. The project does not modify game simulation or networking. Original MIT license retained.
+
+Deployment requires an explicit expected state even in preview: use -ExpectAbsent for a new profile or -ExpectedInstalledSha256 <recorded SHA256> for an existing DLL. Unexpected state/hash fails before backup or overwrite. Packaging consumes build.ps1 attestation (source tree, HEAD, selected reference manifest and DLL hashes); a direct dotnet build alone is insufficient for attested packaging. The generic packager labels its actual target unverified and records the inspected baseline separately; compare selected reference hashes with the discovery manifest.
