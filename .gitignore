@@ -1,5 +1,6 @@
 bin/
 obj/
+artifacts/
+.superpowers/
+.worktrees/
 *.user
-*.suo
-*.vs/
