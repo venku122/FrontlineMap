@@ -1,0 +1,10 @@
+{
+  "Plugin.cs": "52d11593372e36879a6efee0827f4facce617c105351b91b38267c4fc5532d86",
+  "src/Game/GameObservationAdapter.cs": "3c9b0a677d9ffff062949d1d6d7363839486526ea3e54e4e2e462f410e905bbf",
+  "src/Game/MapBinding.cs": "6537c11e0c9d78e2fdbafba682cecbb7f6dffc02edb502628c0688c59a521b56",
+  "src/Runtime/OverlayController.cs": "0a5c28eaf8062b6a0dfbd41056731bca21f052c17c6a056a61a271dd602acb76",
+  "src/Runtime/StepScheduler.cs": "0591bece6686da53c1393da57dbee4bc78efed5f5f9cd1808eac2dd352478f6d",
+  "src/Core/FieldClassifier.cs": "442f15e4c02711f3e193a5807b61c47f7a7c6627e29f8f6efeacae887f999bcc",
+  "src/Rendering/RasterOverlayRenderer.cs": "9e144f14b379c849ab7bbd872ffd9412032f1e7cd62eaa8e0858f85e896132e0",
+  "tests/FrontlineMap.Core.Tests/FrontlineMap.Core.Tests.csproj": "68091283e79917fba6636d6792d76cc72a65a96b7064762045b1a9a833321613"
+}

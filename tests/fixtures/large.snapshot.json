@@ -1,0 +1,26 @@
+{
+  "resolution": 64,
+  "radius": 100000000.0,
+  "bounds": [
+    -50,
+    -30,
+    100,
+    60
+  ],
+  "stamps": [
+    {
+      "id": "1",
+      "side": "friendly",
+      "x": 0,
+      "z": 0,
+      "weight": 10
+    },
+    {
+      "id": "2",
+      "side": "enemy",
+      "x": 10,
+      "z": 0,
+      "weight": 5
+    }
+  ]
+}

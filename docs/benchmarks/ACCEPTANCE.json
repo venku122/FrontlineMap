@@ -1,0 +1,40 @@
+{
+  "status": "blocked",
+  "reason": "No authorized target baseline/paired runtime samples. No optimization winner selected. Provisional user settings are not accepted budgets.",
+  "scenario_ids": [
+    "empty",
+    "sparse",
+    "dense",
+    "large-radius",
+    "mission/team-switch",
+    "full/minimap-zoom"
+  ],
+  "supported_resolutions_source": [
+    64,
+    512,
+    2048
+  ],
+  "target_validated_resolutions": [],
+  "main_thread_chunk_budget_ms": null,
+  "overshoot_allowance_ms": null,
+  "publication_cadence_s": null,
+  "maximum_computation_age_s": null,
+  "update_aligned_hitch_objective": null,
+  "cpu_gpu_memory_tradeoffs": null,
+  "numerical_tolerances": {
+    "absolute": 1e-09,
+    "relative": 1e-09,
+    "classification": "exact replay"
+  },
+  "visual_tolerance": null,
+  "trials": 3,
+  "completed_updates_per_trial": 60,
+  "instrument_overhead": null,
+  "regression_thresholds": null,
+  "provisional_settings_only": {
+    "compute_slice_ms": 2,
+    "interval_s": 5,
+    "max_age_s": 15
+  },
+  "selection_rationale": "Default configurable development behavior only. Freeze accepted budgets from target data before tuning; retain simpler corrected raster meanwhile."
+}

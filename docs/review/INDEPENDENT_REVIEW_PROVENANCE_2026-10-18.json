@@ -1,0 +1,68 @@
+{
+  "review_id": "independent-source-directive-2026-10-18",
+  "reviewer_kind": "separate_agent",
+  "reviewer_identity": "/root/independent_review",
+  "model_if_exposed": "not_exposed",
+  "session_or_tool_reference_if_exposed": "collaboration child /root/independent_review",
+  "independent_of_implementation_author": true,
+  "independence_explanation": "Separate child context; did not author implementation. Initial source findings returned before receiving prior review/directive.",
+  "prior_review_seen_before_first_pass": false,
+  "source_base_sha": "6450ab9dc75503e5fedefc0280182436e5d993ec",
+  "reviewed_head_sha": "6450ab9dc75503e5fedefc0280182436e5d993ec",
+  "implementation_diff_reviewed": false,
+  "target_manifest_path": "artifacts/discovery/target-manifest.json",
+  "inputs_examined": [
+    "Plugin.cs",
+    "FrontlineMap.csproj",
+    "docs/IMPLEMENTATION_DIRECTIVE.md",
+    "../frontlinemap_agent_handoff/START_HERE.md",
+    "../frontlinemap_agent_handoff/REVIEWER_TASK.md",
+    "../frontlinemap_agent_handoff/inputs/review/Revised_Implementation_Plan.md",
+    "../frontlinemap_agent_handoff/inputs/review/FrontlineMap_Adversarial_Review_2026-10-18.md",
+    "../frontlinemap_agent_handoff/inputs/review/Independent_Reviewer_Brief_NOT_EXECUTED.md",
+    "../frontlinemap_agent_handoff/inputs/review/evidence/adversarial_probes.py",
+    "artifacts/discovery/target-manifest.json",
+    "Private target decompilations: DynamicMap, FactionHQ, UnitMapIcon, AirbaseMapIcon, TrackingInfo, GlobalPositionExtensions"
+  ],
+  "commands_executed_and_evidence_paths": [
+    {
+      "commands": [
+        "git status --short",
+        "git rev-parse HEAD",
+        "nl -ba Plugin.cs",
+        "cat FrontlineMap.csproj",
+        "rg/sed/cat read-only inspection of supplied review/native source",
+        "python3 independent alpha/zero arithmetic",
+        "python3 compile/exec of unchanged original adversarial_probes.py with redirected __file__ and stdout"
+      ],
+      "evidence_paths": [
+        "docs/review/INDEPENDENT_SOURCE_AND_DIRECTIVE_REVIEW_2026-10-18.md",
+        "docs/review/independent-legacy-probes.log",
+        "docs/review/probe_results.json"
+      ],
+      "command_failures": [
+        "python executable not found; python3 succeeded",
+        "one git show invoked from /mnt failed not-a-repository; initial workdir HEAD command succeeded"
+      ]
+    }
+  ],
+  "not_executed": [
+    "target build",
+    "implementation diff",
+    "load/install/launch",
+    "multiplayer",
+    "native calibration",
+    "native lifecycle cycles",
+    "runtime fault injection",
+    "performance benchmark",
+    "package/final HEAD review"
+  ],
+  "verdict": "approve_with_conditions",
+  "production_verdict": "request_changes",
+  "critical_high_findings_remaining": [
+    "IR1 unresolved viewer context fails open",
+    "IR2 failure strands coroutine scheduling",
+    "IR9 jamming/marker-eligibility contract gate"
+  ],
+  "native_source_redistributed": false
+}

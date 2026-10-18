@@ -1,0 +1,11 @@
+{
+  "resolution": 64,
+  "radius": 30,
+  "bounds": [
+    -50,
+    -30,
+    100,
+    60
+  ],
+  "stamps": []
+}

@@ -1,41 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
-    <AssemblyName>FrontlineMap</AssemblyName>
-    <LangVersion>latest</LangVersion>
+    <TargetFramework>net472</TargetFramework><AssemblyName>FrontlineMap</AssemblyName><LangVersion>latest</LangVersion>
+    <Version>1.5.0</Version><AssemblyVersion>1.5.0.0</AssemblyVersion><FileVersion>1.5.0.0</FileVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ManagedDir Condition="'$(ManagedDir)' == ''">$(GameDir)/NuclearOption_Data/Managed</ManagedDir>
+    <LoaderDir Condition="'$(LoaderDir)' == ''">$(GameDir)/BepInEx/core</LoaderDir>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option\NuclearOption_Data\Managed\Assembly-CSharp.dll</HintPath>
-      <Private>false</Private>
+    <Compile Include="Plugin.cs;src/**/*.cs" />
+    <Reference Include="Assembly-CSharp;UnityEngine;UnityEngine.CoreModule;UnityEngine.UI;UnityEngine.InputLegacyModule;UnityEngine.IMGUIModule;UnityEngine.TextRenderingModule;UnityEngine.UIModule;Mirage">
+      <HintPath>$(ManagedDir)/%(Identity).dll</HintPath><Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option\NuclearOption_Data\Managed\UnityEngine.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option\NuclearOption_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.UI">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option\NuclearOption_Data\Managed\UnityEngine.UI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="BepInEx">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option\BepInEx\core\BepInEx.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option\BepInEx\core\0Harmony.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Mirage">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option\NuclearOption_Data\Managed\Mirage.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option\NuclearOption_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <Reference Include="BepInEx"><HintPath>$(LoaderDir)/BepInEx.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
+  <Target Name="CheckTargetReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(ManagedDir)/Assembly-CSharp.dll')" Text="Missing game assemblies: set GameDir or ManagedDir to the intended Nuclear Option installation." />
+    <Error Condition="!Exists('$(LoaderDir)/BepInEx.dll')" Text="Missing BepInEx.dll: set LoaderDir to the intended profile's BepInEx/core." />
+  </Target>
+  <Target Name="GeneratePluginVersion" BeforeTargets="BeforeCompile">
+    <WriteLinesToFile File="$(IntermediateOutputPath)PluginVersion.g.cs" Lines="namespace FrontlineMap { internal static class PluginVersion { public const string Value = &quot;$(Version)&quot;%3B } }" Overwrite="true" />
+    <ItemGroup><Compile Include="$(IntermediateOutputPath)PluginVersion.g.cs" /></ItemGroup>
+  </Target>
 </Project>

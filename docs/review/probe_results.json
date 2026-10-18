@@ -1,0 +1,190 @@
+{
+  "source_commit": "6450ab9dc75503e5fedefc0280182436e5d993ec",
+  "execution": "Python source-derived mathematical probes; NOT compiled mod tests or FPS benchmarks",
+  "independent_reviewer": "not run",
+  "probe_count": 12,
+  "all_counterexamples_reproduced": true,
+  "results": [
+    {
+      "probe": "P01_false_enemy_line_from_one_friendly_stamp",
+      "counterexample_reproduced": true,
+      "observed": {
+        "grid_resolution": 64,
+        "enemy_units": 0,
+        "false_enemy_pixels": 40,
+        "sample": [
+          [
+            23,
+            30
+          ],
+          [
+            23,
+            31
+          ],
+          [
+            23,
+            32
+          ],
+          [
+            24,
+            28
+          ],
+          [
+            24,
+            29
+          ],
+          [
+            24,
+            34
+          ]
+        ]
+      }
+    },
+    {
+      "probe": "P02_equal_opponents_indistinguishable_from_empty",
+      "counterexample_reproduced": true,
+      "observed": {
+        "nonzero_cells": 0,
+        "fields": "one +10 and one -10 colocated stamp"
+      }
+    },
+    {
+      "probe": "P03_arrow_direction_opposes_translating_contour",
+      "counterexample_reproduced": true,
+      "observed": {
+        "legacy_arrow_dx": 1.0,
+        "true_contour_dx": -0.5
+      }
+    },
+    {
+      "probe": "P04_abs_value_fast_path_suppresses_nearby_steep_front",
+      "counterexample_reproduced": true,
+      "observed": {
+        "center_value": 6,
+        "left_value": -6,
+        "right_value": 18,
+        "legacy_result": [
+          "clear",
+          null,
+          0
+        ],
+        "estimated_distance_pixels": 0.25
+      }
+    },
+    {
+      "probe": "P05_dash_rule_changes_when_grid_spacing_halves",
+      "counterexample_reproduced": true,
+      "observed": {
+        "coarse": [
+          "line",
+          "friendly",
+          238
+        ],
+        "fine": [
+          "clear",
+          null,
+          0
+        ],
+        "explanation": "Same world-space linear gradient; differences scale with grid spacing."
+      }
+    },
+    {
+      "probe": "P06_zero_exactly_on_sample_missed_by_shift_crossing_gate",
+      "counterexample_reproduced": true,
+      "observed": {
+        "left": -1,
+        "center": 0,
+        "right": 1,
+        "crossing_gate": false
+      }
+    },
+    {
+      "probe": "P07_default_alpha_discards_single_airbase_territory_fill",
+      "counterexample_reproduced": true,
+      "observed": {
+        "single_airbase_weight": 10,
+        "territory_fill_pixels": 0,
+        "approximate_influence_threshold": 32.6797385620915,
+        "maximum_alpha_byte": 3
+      }
+    },
+    {
+      "probe": "P08_large_spread_can_exceed_update_interval_at_20fps",
+      "counterexample_reproduced": true,
+      "observed": {
+        "units": 100,
+        "spread": 100,
+        "yields": 103,
+        "nominal_seconds_at_20fps": 5.15,
+        "note": "Idealized frame cadence; excludes actual CPU time and Unity scheduling variation."
+      }
+    },
+    {
+      "probe": "P09_spread_frames_is_not_a_strict_frame_limit",
+      "counterexample_reproduced": true,
+      "observed": {
+        "units": 19,
+        "spread": 10,
+        "actual_stamp_yields": 19
+      }
+    },
+    {
+      "probe": "P10_global_p99_misses_periodic_hitches",
+      "counterexample_reproduced": true,
+      "observed": {
+        "frames": 18000,
+        "hitch_frames": 60,
+        "p99_ms": 16.666666666666668,
+        "max_ms": 80.0,
+        "hitch_fraction": 0.0033333333333333335,
+        "note": "Synthetic distribution, not gameplay telemetry."
+      }
+    },
+    {
+      "probe": "P11_parenting_alone_cannot_mirror_uv_cropping",
+      "counterexample_reproduced": true,
+      "observed": {
+        "native_normalized_x": 0.30000000000000004,
+        "child_normalized_x": 0.4,
+        "conditional": "Only demonstrates failure when the target map uses UV cropping; game implementation not inspected."
+      }
+    },
+    {
+      "probe": "P12_resolution_square_law",
+      "counterexample_reproduced": true,
+      "observed": {
+        "resources": [
+          {
+            "resolution": 256,
+            "pixels": 65536,
+            "managed_grid_and_pixel_MiB": 0.75,
+            "texture_upload_MiB": 0.25,
+            "combined_managed_plus_readable_cpu_texture_plus_gpu_payload_MiB": 1.25
+          },
+          {
+            "resolution": 512,
+            "pixels": 262144,
+            "managed_grid_and_pixel_MiB": 3.0,
+            "texture_upload_MiB": 1.0,
+            "combined_managed_plus_readable_cpu_texture_plus_gpu_payload_MiB": 5.0
+          },
+          {
+            "resolution": 1024,
+            "pixels": 1048576,
+            "managed_grid_and_pixel_MiB": 12.0,
+            "texture_upload_MiB": 4.0,
+            "combined_managed_plus_readable_cpu_texture_plus_gpu_payload_MiB": 20.0
+          },
+          {
+            "resolution": 2048,
+            "pixels": 4194304,
+            "managed_grid_and_pixel_MiB": 48.0,
+            "texture_upload_MiB": 16.0,
+            "combined_managed_plus_readable_cpu_texture_plus_gpu_payload_MiB": 80.0
+          }
+        ],
+        "note": "Payload arithmetic only; excludes allocator, object, driver and transient overhead."
+      }
+    }
+  ]
+}

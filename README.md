@@ -1,66 +1,41 @@
-# FrontlineMap
+# FrontlineMap 1.5.0 development candidate
+Estimated influence from player-visible Nuclear Option map observations. Blue friendly support, red hostile support, purple balanced support, gold opposing-support boundaries. Unsupported space means no admitted modeled support, not safety or empty territory. Influence weights are heuristic, not weapon coverage or ownership.
 
-A [BepInEx](https://github.com/BepInEx/BepInEx) mod for [Nuclear Option](https://store.steampowered.com/app/2150800/Nuclear_Option/) that visualizes the frontline between factions on the in-game map.
+This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has not been loaded in game or approved for production. Read docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
 
-![Nuclear Option](https://img.shields.io/badge/Nuclear_Option-mod-blue)
-![BepInEx](https://img.shields.io/badge/BepInEx-5.x-green)
-![.NET](https://img.shields.io/badge/.NET-4.7.2-purple)
+## Changes
+Separate friendly/enemy supports; preserve native stale marker positions; reject unresolved/spectator/multisided/jammed contexts; invalidate old-team output; stage complete textures before publication; bounded 128-cell compute chunks; screen-pixel front coverage with repaint on viewport changes; readable opacity; movement arrows removed. Native UI icons and clicks remain above the non-raycasting overlay in source; actual masking/order requires target validation.
 
-## Features
+## Build and test
+Install an appropriate .NET SDK and use your own game's managed assemblies. No proprietary assemblies are included.
 
-- **Influence-based frontline calculation** — Uses unit positions and types to compute an influence map, then renders the frontline where faction influence meets
-- **Conflict intensity visualization** — Solid lines where fighting is intense, dashed lines where the frontline is weak
-- **Frontline shift indicators** — Shows which faction is advancing with colored chevron markers
-- **Territory tinting** — Subtle color overlay showing faction-controlled areas
-- **Minimap support** — Overlay follows map zoom, pan, and works on both full map and minimap
-- **Toggle with F9** — Press F9 to show/hide the overlay
-
-## Installation
-
-1. Install [BepInEx 5.x](https://github.com/BepInEx/BepInEx/releases) for Nuclear Option
-2. Download `FrontlineMap.dll` from [Releases](../../releases)
-3. Place `FrontlineMap.dll` in `BepInEx/plugins/`
-4. Launch the game
-
-## Configuration
-
-After first launch, edit `BepInEx/config/com.yuulf.frontlinemap.cfg`:
-
-| Setting | Default | Description |
-|---|---|---|
-| GridResolution | 400 | Influence grid resolution (64-512) |
-| UpdateInterval | 5 | Seconds between recalculation |
-| InfluenceRadius | 12000 | How far units project influence (meters) |
-| TerritoryAlpha | 0.012 | Territory overlay opacity |
-| ToggleKey | F9 | Key to toggle overlay |
-
-### Unit Weights
-
-| Unit Type | Weight | Description |
-|---|---|---|
-| Airbase | 10 | Strongest influence anchor |
-| Ship | 5 | Naval presence |
-| Vehicle | 3 | Ground forces |
-| Aircraft | 0.5 | Minor, mobile influence |
-
-## How It Works
-
-The mod computes a 2D influence grid covering the entire map. Each active unit stamps influence with quadratic distance falloff. The frontline is rendered where the influence sign changes (zero-crossing). Gradient magnitude determines line style, and tick-over-tick comparison reveals frontline movement direction.
-
-## Building
-
-Requires references to Nuclear Option's managed DLLs:
-- `Assembly-CSharp.dll`
-- `UnityEngine.dll`, `UnityEngine.CoreModule.dll`, `UnityEngine.UI.dll`, `UnityEngine.InputLegacyModule.dll`
-- `BepInEx.dll`, `0Harmony.dll`
-- `Mirage.dll`
-
-```bash
-dotnet build -c Release
+```powershell
+.\scripts\build.ps1 -GameDir 'D:\SteamLibrary\steamapps\common\Nuclear Option'
+dotnet test .\tests\FrontlineMap.Core.Tests -c Release
+dotnet run --project .\tools\FrontlineMap.Replay -c Release -- --fixtures .\tests\fixtures --compare oracle,candidate --output .\artifacts\replay
+.\scripts\package.ps1 -OutputDir .\artifacts\release
 ```
 
-Output: `bin/Release/net472/FrontlineMap.dll`
+Direct build: `dotnet build FrontlineMap.csproj -c Release -p:GameDir=<your installation>`; separate profile loader supports `-p:LoaderDir=<profile>/BepInEx/core`; copied private reference inventory supports `-p:ManagedDir=<managed directory>`. All references are non-copying. The only runtime plugin artifact is `bin/Release/net472/FrontlineMap.dll`.
 
-## License
+Windows PowerShell on the inspected host disallowed scripts under its execution policy. Do not bypass that policy. Direct dotnet commands work in an existing SDK shell; the scripts were tested separately under portable PowerShell7.4.13 on Linux. SDK8.0.426 was installed locally under /tmp for this development session, not globally.
 
-MIT License
+## Configuration and diagnostic capture
+Current config: `BepInEx/config/com.noms.frontlinemap.cfg`. If absent, legacy `com.yuulf.frontlinemap.cfg` is copied with a timestamped backup; existing current config wins. All settings require restart and invalid settings disable the candidate coherently. F9 toggles and clears output. Duplicate legacy GUID disables this candidate; no binaries are deleted.
+
+| Setting | Default | Meaning |
+|---|---:|---|
+| GridResolution |512|64–2048, quadratic memory/cost|
+| InfluenceRadius |12000|Global meters, legacy radial kernel|
+| UpdateInterval |5|Monotonic seconds between capture starts|
+| MaximumAgeSeconds |15|Expiry including computation; >= interval|
+| TerritoryAlpha |0.16|Uniform support-fill opacity; old configured opacity retained|
+| LineWidthPixels |3|Screen-space coverage target, raster sampling limits apply|
+| BudgetMilliseconds |2|Provisional slice setting, not a measured total-frame guarantee|
+
+Weights preserved: airbase10, ship5, vehicle3, aircraft0.5, recognized building4; dismounted pilots/unknown types excluded. SpreadFrames, UseFixedColors, intensity dashes and advance arrows are retired. Colors are viewer-relative and fixed. Existing airbases follow native marker availability, so only permitted own airbase icons contribute on the inspected target; this can differ between map modes.
+
+Diagnostics.Enabled logs capture/allocate/stamp/raster/copy/native-upload timing, age, rejection/expiry/pending and owned resource counters. Diagnostics.ExportSnapshots saves at most100 sanitized snapshots in BepInEx/FrontlineMap-replay/<run>/; these contain permitted gameplay locations and remain local. Replay them with the same CLI. Instrumentation overhead has not been measured on Unity. Treat /tmp tools as session-local; recreate them after reboot.
+
+## Installation and rollback
+Use only an explicitly authorized disposable profile. See docs/INSTALL_AND_ROLLBACK.md. No normal profile was changed during development. The project does not modify game simulation or networking. Original MIT license retained.

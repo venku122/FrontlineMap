@@ -1,536 +1,215 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Diagnostics;
 using BepInEx;
-using BepInEx.Configuration;
-using BepInEx.Logging;
+using BepInEx.Bootstrap;
+using FrontlineMap.Core;
+using FrontlineMap.Game;
+using FrontlineMap.Rendering;
+using FrontlineMap.Runtime;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
 namespace FrontlineMap
 {
-    [BepInPlugin("com.noms.frontlinemap", "FrontlineMap", "1.3.1")]
-    public class FrontlineMapPlugin : BaseUnityPlugin
+    [BepInPlugin(Guid, "FrontlineMap", PluginVersion.Value)]
+    public sealed class FrontlineMapPlugin : BaseUnityPlugin
     {
-        internal static ManualLogSource Log;
-
-        // === Config (static so Helper can access) ===
-        internal static ConfigEntry<int> cfgGridRes;
-        internal static ConfigEntry<float> cfgUpdateInterval;
-        internal static ConfigEntry<float> cfgInfluenceRadius;
-        internal static ConfigEntry<float> cfgTerritoryAlpha;
-        internal static ConfigEntry<KeyCode> cfgToggleKey;
-        internal static ConfigEntry<float> cfgWeightAirbase;
-        internal static ConfigEntry<float> cfgWeightShip;
-        internal static ConfigEntry<float> cfgWeightVehicle;
-        internal static ConfigEntry<float> cfgWeightAircraft;
-        internal static ConfigEntry<float> cfgWeightBuilding;
-        internal static ConfigEntry<bool> cfgUseFixedColors;
-        internal static ConfigEntry<int> cfgSpreadFrames;
-
-        static FrontlineHelper helperInstance;
-
+        public const string Guid = "com.noms.frontlinemap";
+        private ModelSettings settings;
+        private GameObservationAdapter adapter;
+        private RasterOverlayRenderer renderer;
+        private OverlayController controller;
+        private readonly Stopwatch clock = Stopwatch.StartNew();
+        private string geometryKey, admissionKey, lastFailure;
+        private long session = 1, mapRevision, policyRevision, sequence;
+        private bool visible = true, diagnostics, exportSnapshots;
+        private string exportDirectory;
+        private int exported;
+        private double nextCapture, lastMetric;
+        private KeyCode toggle;
+        private Exception reportedError;
+        private double Now => clock.Elapsed.TotalSeconds;
         void Awake()
         {
-            Log = Logger;
-
-            cfgGridRes = Config.Bind("General", "GridResolution", 512,
-                new ConfigDescription("Influence grid resolution", new AcceptableValueRange<int>(64, 2048)));
-            cfgUpdateInterval = Config.Bind("General", "UpdateInterval", 5f,
-                "Seconds between frontline recalculation");
-            cfgInfluenceRadius = Config.Bind("General", "InfluenceRadius", 12000f,
-                "How far each unit projects influence (meters)");
-            cfgTerritoryAlpha = Config.Bind("Visual", "TerritoryAlpha", 0.012f,
-                "Territory color overlay opacity (0-1)");
-            cfgToggleKey = Config.Bind("General", "ToggleKey", KeyCode.F9,
-                "Key to toggle frontline overlay");
-
-            cfgWeightAirbase = Config.Bind("Weights", "Airbase", 10f, "Airbase influence weight");
-            cfgWeightShip = Config.Bind("Weights", "Ship", 5f, "Ship influence weight");
-            cfgWeightVehicle = Config.Bind("Weights", "Vehicle", 3f, "Ground vehicle influence weight");
-            cfgWeightAircraft = Config.Bind("Weights", "Aircraft", 0.5f, "Aircraft influence weight");
-            cfgWeightBuilding = Config.Bind("Weights", "Building", 4f, "Building influence weight (AA, radar, etc.)");
-
-            cfgUseFixedColors = Config.Bind("Visual", "UseFixedColors", true,
-                "Use fixed Red/Blue colors instead of faction colors");
-
-            cfgSpreadFrames = Config.Bind("Performance", "SpreadFrames", 10,
-                new ConfigDescription(
-                    "Spread influence computation across N frames (higher = less lag, slower update)",
-                    new AcceptableValueRange<int>(1, 100)));
-
-            // Create helper on scene load (same pattern as NOAIBridge)
-            SceneManager.sceneLoaded += (scene, mode) =>
+            try
             {
-                if (helperInstance == null)
+                if (ConfigMigration.CopyIfMissing(Paths.ConfigPath))
                 {
-                    var go = new GameObject("[FrontlineMapHelper]");
-                    go.AddComponent<FrontlineHelper>();
-                    Log.LogInfo($"[FLM] Helper created in scene: {scene.name}");
+                    Config.Reload();
+                    Logger.LogInfo("Copied legacy config with backup; current config was absent.");
                 }
-            };
-
-            Logger.LogInfo("FrontlineMap v1.0.0 loaded");
+                int n = Config.Bind("General", "GridResolution", 512, "64-2048; restart required. Memory grows quadratically.").Value;
+                if (n < 64 || n > 2048)
+                    throw new ArgumentOutOfRangeException("GridResolution");
+                settings = new ModelSettings(n,
+                    Config.Bind("General", "InfluenceRadius", 12000f, "Meters; restart required.").Value,
+                    Config.Bind("General", "UpdateInterval", 5f, "Monotonic seconds; restart required.").Value,
+                    Config.Bind("Visual", "TerritoryAlpha", .16f, "Uniform fill opacity 0-1; restart required. Legacy subtle values are preserved.").Value,
+                    .01, 1e-9,
+                    Config.Bind("Performance", "BudgetMilliseconds", 2f, "Provisional compute slice budget; allocations/capture/upload remain indivisible and unmeasured. Restart required.").Value,
+                    Config.Bind("General", "MaximumAgeSeconds", 15f, "Maximum computation/presentation age, >= UpdateInterval. Restart required.").Value,
+                    Config.Bind("Visual", "LineWidthPixels", 3f, "Opposing-front width in screen pixels; restart required.").Value);
+                adapter = new GameObservationAdapter(
+                    Config.Bind("Weights", "Airbase", 10f, "Heuristic support weight; restart required.").Value,
+                    Config.Bind("Weights", "Ship", 5f, "Heuristic support weight; restart required.").Value,
+                    Config.Bind("Weights", "Vehicle", 3f, "Heuristic support weight; restart required.").Value,
+                    Config.Bind("Weights", "Aircraft", .5f, "Heuristic support weight; restart required.").Value,
+                    Config.Bind("Weights", "Building", 4f, "Heuristic support weight; restart required.").Value);
+                toggle = Config.Bind("General", "ToggleKey", KeyCode.F9, "Show/hide influence; restart required.").Value;
+                diagnostics = Config.Bind("Diagnostics", "Enabled", false, "Opt-in per-update stage/age/resource logging; no unit locations.").Value;
+                exportSnapshots = Config.Bind("Diagnostics", "ExportSnapshots", false, "Capture at most 100 sanitized native-map snapshots locally for replay; contains permitted gameplay positions. Restart required.").Value;
+                if (exportSnapshots)
+                    exportDirectory = System.IO.Path.Combine(Paths.BepInExRootPath, "FrontlineMap-replay", System.Guid.NewGuid().ToString("N"));
+                renderer = new RasterOverlayRenderer();
+                controller = new OverlayController(renderer, () => Now);
+                controller.BeforePublish = RevalidateBeforePublish;
+                SceneManager.sceneLoaded += OnSceneLoaded;
+                Logger.LogInfo("FrontlineMap " + PluginVersion.Value + " development candidate: estimated influence from player-visible observations. Arrows disabled. Legacy SpreadFrames/UseFixedColors retired. All settings require restart.");
+            }
+            catch (Exception error) { Logger.LogError(error); enabled = false; }
         }
-
-        // ================================================================
-        // Helper MonoBehaviour - runs on a DontDestroyOnLoad object
-        // ================================================================
-        internal class FrontlineHelper : MonoBehaviour
+        void Start()
         {
-            private GameObject overlayGO;
-            private RawImage overlayImage;
-            private Texture2D tex;
-            private Color32[] pixels;
-            private float[,] influenceGrid;
-            private float[,] prevInfluenceGrid;
-            private bool hasPrevGrid;
-            private bool showOverlay = true;
-            private int gridRes;
-            private float lastUpdateTime;
-            private int updateCount;
-            private bool computing;
-
-            // Faction cache
-            private FactionHQ hq0;
-            private FactionHQ hq1;
-            private Color color0;
-            private Color color1;
-
-            // Cached unit data for coroutine
-            private struct UnitStamp
+            if (Chainloader.PluginInfos.ContainsKey("com.yuulf.frontlinemap"))
             {
-                public float x, z, weightedSign;
+                Logger.LogError("Legacy FrontlineMap is also loaded. Disable the duplicate manually; this candidate will stay disabled.");
+                Reset();
+                enabled = false;
             }
-            private List<UnitStamp> stampList = new List<UnitStamp>(512);
-
-            void Awake()
+        }
+        void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            session++;
+            Reset();
+        }
+        void Reset()
+        {
+            controller?.Cancel(InvalidationReason.Map);
+            renderer?.Dispose();
+            geometryKey = null;
+            admissionKey = null;
+            nextCapture = 0;
+        }
+        bool TryRead(out MapBinding binding, out ObservationStamp[] stamps)
+        {
+            binding = null;
+            stamps = null;
+            if (!visible || !MapBinding.TryCreate(settings.Resolution, out binding))
+                return false;
+            double captureStart = Now;
+            if (!adapter.TryRead(binding, out stamps, out var key, out var failure))
             {
-                DontDestroyOnLoad(gameObject);
-                helperInstance = this;
-                gridRes = cfgGridRes.Value;
-                pixels = new Color32[gridRes * gridRes];
-                influenceGrid = new float[gridRes, gridRes];
-                prevInfluenceGrid = new float[gridRes, gridRes];
-                Log.LogInfo("[FLM] Helper Awake + DontDestroyOnLoad");
-            }
-
-            void OnDestroy()
-            {
-                Log.LogInfo("[FLM] Helper destroyed");
-                helperInstance = null;
-                if (overlayGO != null) Destroy(overlayGO);
-                if (tex != null) Destroy(tex);
-            }
-
-            void Update()
-            {
-                try
+                string reason = failure.ToString();
+                if (lastFailure != reason)
                 {
-                    if (Input.GetKeyDown(cfgToggleKey.Value))
+                    Logger.LogInfo("Influence hidden: " + reason);
+                    lastFailure = reason;
+                }
+                return false;
+            }
+            if (geometryKey != binding.GeometryKey)
+            {
+                controller.Cancel(InvalidationReason.Map);
+                renderer.Dispose();
+                geometryKey = binding.GeometryKey;
+                mapRevision++;
+                nextCapture = 0;
+            }
+            if (admissionKey != key)
+            {
+                controller.Cancel(InvalidationReason.Team);
+                admissionKey = key;
+                policyRevision++;
+                nextCapture = 0;
+            }
+            renderer.Binding = binding;
+            lastFailure = null;
+            if (diagnostics)
+                captureMilliseconds = (Now - captureStart) * 1000;
+            return true;
+        }
+        double captureMilliseconds;
+        SnapshotIdentity Identity() => new SnapshotIdentity(session, mapRevision, policyRevision, 1, sequence);
+        void RevalidateBeforePublish()
+        {
+            if (!TryRead(out _, out _))
+            {
+                Reset();
+                return;
+            }
+            controller.SetContext(Identity(), Now, true);
+        }
+        void LateUpdate()
+        {
+            if (controller == null)
+                return;
+            try
+            {
+                if (Input.GetKeyDown(toggle))
+                {
+                    visible = !visible;
+                    Reset();
+                }
+                if (!TryRead(out var binding, out var stamps))
+                {
+                    Reset();
+                    return;
+                }
+                double now = Now;
+                controller.SetContext(Identity(), now, true);
+                if (now >= nextCapture)
+                {
+                    sequence++;
+                    var snapshot = new ObservationSnapshot(Identity(), binding.Geometry, stamps, now, Time.timeSinceLevelLoad, now + settings.MaximumAge);
+                    if (exportSnapshots && exported < 100)
                     {
-                        showOverlay = !showOverlay;
-                        if (overlayGO != null) overlayGO.SetActive(showOverlay);
-                        Log.LogInfo($"[FLM] Overlay: {(showOverlay ? "ON" : "OFF")}");
+                        System.IO.Directory.CreateDirectory(exportDirectory);
+                        System.IO.File.WriteAllText(System.IO.Path.Combine(exportDirectory, sequence.ToString("D8") + ".snapshot.json"), FrontlineMap.Diagnostics.SnapshotWriter.ToJson(snapshot, settings));
+                        exported++;
                     }
+                    controller.Submit(snapshot, settings, binding.ScreenWidth, binding.ScreenHeight);
+                    nextCapture = now + settings.Interval;
                 }
-                catch { }
-
-                if (!showOverlay) return;
-                if (computing) return;
-                if (Time.time - lastUpdateTime < cfgUpdateInterval.Value) return;
-                lastUpdateTime = Time.time;
-
-                try
+                if (controller.Displayed != null && !controller.Busy &&
+                    (Math.Abs(controller.Displayed.ScreenWidth - binding.ScreenWidth) > .5 || Math.Abs(controller.Displayed.ScreenHeight - binding.ScreenHeight) > .5))
+                    controller.Repaint(settings, binding.ScreenWidth, binding.ScreenHeight);
+                double stepStart = Now;
+                controller.Tick(now, now + settings.BudgetMilliseconds / 1000);
+                if (controller.LastError != null && controller.LastError != reportedError)
                 {
-                    if (!EnsureOverlay())
-                    {
-                        if (updateCount % 10 == 0) Log.LogWarning("[FLM] EnsureOverlay failed");
-                        updateCount++;
-                        return;
-                    }
-                    if (!ResolveFactions())
-                    {
-                        if (updateCount % 10 == 0) Log.LogWarning("[FLM] ResolveFactions failed");
-                        updateCount++;
-                        return;
-                    }
-                    StartCoroutine(ComputeAndRenderAsync());
+                    reportedError = controller.LastError;
+                    Logger.LogError(reportedError);
                 }
-                catch (Exception e)
+                if (diagnostics && controller.Displayed != null && controller.Displayed.Snapshot.CapturedAt != lastMetric)
                 {
-                    if (updateCount % 10 == 0)
-                        Log.LogError($"[FLM] Error: {e}");
-                    updateCount++;
+                    lastMetric = controller.Displayed.Snapshot.CapturedAt;
+                    Logger.LogInfo(string.Format(System.Globalization.CultureInfo.InvariantCulture, "FLM_METRIC seq={0} capture_ms={1:F3} step_with_prepare_upload_ms={2:F3} age_s={3:F3} owned_textures={4} owned_objects={5} allocate_ms={6:F3} stamp_ms={7:F3} raster_ms={8:F3} max_chunk_ms={9:F3} copy_ms={10:F3} native_prepare_upload_ms={11:F3} published={12} rejected={13} expired={14} pending_replaced={15}", controller.Displayed.Snapshot.Identity.Sequence, captureMilliseconds, (Now - stepStart) * 1000, Now - lastMetric, renderer.OwnedTextures, renderer.OwnedObjects, controller.Metrics.Milliseconds(FrontlineMap.Diagnostics.WorkStage.Allocation), controller.Metrics.Milliseconds(FrontlineMap.Diagnostics.WorkStage.Stamp), controller.Metrics.Milliseconds(FrontlineMap.Diagnostics.WorkStage.Raster), controller.Metrics.MaximumChunkMilliseconds, renderer.LastCopyMilliseconds, renderer.LastUploadMilliseconds, controller.PublishedCount, controller.RejectedCount, controller.ExpiredCount, controller.PendingReplacementCount));
                 }
             }
-
-            IEnumerator ComputeAndRenderAsync()
-            {
-                computing = true;
-
-                // Swap grids
-                var temp = prevInfluenceGrid;
-                prevInfluenceGrid = influenceGrid;
-                influenceGrid = temp;
-                Array.Clear(influenceGrid, 0, gridRes * gridRes);
-
-                // Phase 1: Collect unit data (fast, one frame)
-                CollectUnitData();
-                yield return null;
-
-                // Phase 2: Stamp influence spread across frames
-                DynamicMap map = null;
-                try { map = SceneSingleton<DynamicMap>.i; } catch { }
-                float mapSize = (map != null) ? map.mapDimension : 100000f;
-                if (mapSize <= 0f) mapSize = 100000f;
-
-                float halfMap = mapSize * 0.5f;
-                float cellSize = mapSize / gridRes;
-                float radius = cfgInfluenceRadius.Value;
-                float radiusSq = radius * radius;
-
-                int spread = Mathf.Max(1, cfgSpreadFrames.Value);
-                int unitsPerFrame = Mathf.Max(1, stampList.Count / spread);
-                for (int i = 0; i < stampList.Count; i++)
+            catch (Exception error) { Logger.LogError(error); Reset(); }
+        }
+        void OnGUI()
+        {
+            if (controller?.Displayed == null || renderer.Binding?.Map == null || !renderer.Binding.Map.gameObject.activeInHierarchy)
+                return;
+            bool stale = false;
+            foreach (var s in controller.Displayed.Snapshot.Stamps)
+                if (s.Stale)
                 {
-                    var s = stampList[i];
-                    StampInfluence(s.x, s.z, s.weightedSign, halfMap, cellSize, radiusSq);
-
-                    if ((i + 1) % unitsPerFrame == 0)
-                        yield return null;
+                    stale = true;
+                    break;
                 }
-                yield return null;
-
-                // Phase 3: Render pixels spread across frames
-                RenderToTextureAsync();
-                yield return null;
-
-                // Phase 4: Upload to GPU
-                tex.SetPixels32(pixels);
-                tex.Apply(false);
-
-                hasPrevGrid = true;
-                if (updateCount % 5 == 0)
-                    Log.LogInfo($"[FLM] Tick {updateCount} OK");
-                updateCount++;
-                computing = false;
-            }
-
-            // ==================== Setup ====================
-
-            bool EnsureOverlay()
-            {
-                DynamicMap map;
-                try { map = SceneSingleton<DynamicMap>.i; }
-                catch { return false; }
-                if (map == null || map.mapImage == null) return false;
-
-                if (overlayGO != null) return true;
-
-                // Child of mapImage → auto zoom/pan/move
-                overlayGO = new GameObject("FrontlineOverlay");
-                overlayGO.transform.SetParent(map.mapImage.transform, false);
-
-                overlayImage = overlayGO.AddComponent<RawImage>();
-                overlayImage.raycastTarget = false;
-
-                tex = new Texture2D(gridRes, gridRes, TextureFormat.RGBA32, false);
-                tex.filterMode = FilterMode.Bilinear;
-                tex.wrapMode = TextureWrapMode.Clamp;
-                overlayImage.texture = tex;
-
-                // Stretch to fill parent
-                RectTransform rt = overlayGO.GetComponent<RectTransform>();
-                rt.anchorMin = Vector2.zero;
-                rt.anchorMax = Vector2.one;
-                rt.offsetMin = Vector2.zero;
-                rt.offsetMax = Vector2.zero;
-
-                Log.LogInfo("[FLM] Overlay created as child of mapImage");
-                return true;
-            }
-
-            bool ResolveFactions()
-            {
-                var factions = FactionRegistry.factions;
-                if (factions == null || factions.Count < 2) return false;
-
-                hq0 = null; hq1 = null;
-                color0 = Color.blue; color1 = Color.red;
-
-                FactionHQ localHq = null;
-                try { GameManager.GetLocalHQ(out localHq); } catch { }
-
-                for (int i = 0; i < factions.Count; i++)
-                {
-                    Faction f = factions[i];
-                    FactionHQ fhq = FactionRegistry.HQFromFaction(f);
-                    if (fhq == null) continue;
-                    if (hq0 == null) { hq0 = fhq; if (!cfgUseFixedColors.Value) color0 = f.color; }
-                    else if (hq1 == null) { hq1 = fhq; if (!cfgUseFixedColors.Value) color1 = f.color; break; }
-                }
-
-                // Fixed colors: friendly=blue, enemy=red based on local player
-                if (cfgUseFixedColors.Value && localHq != null && hq0 != null && hq1 != null)
-                {
-                    if (localHq == hq0)
-                    {
-                        color0 = Color.blue; color1 = Color.red;
-                    }
-                    else if (localHq == hq1)
-                    {
-                        color0 = Color.red; color1 = Color.blue;
-                    }
-                }
-
-                return hq0 != null && hq1 != null;
-            }
-
-            // ==================== Influence ====================
-
-            void CollectUnitData()
-            {
-                stampList.Clear();
-
-                FactionHQ localHq = null;
-                try { GameManager.GetLocalHQ(out localHq); } catch { }
-
-                foreach (Unit unit in UnitRegistry.allUnits)
-                {
-                    if (unit == null) continue;
-                    if (unit.unitState != Unit.UnitState.Active &&
-                        unit.unitState != Unit.UnitState.Damaged) continue;
-
-                    FactionHQ hq = unit.NetworkHQ;
-                    if (hq == null) continue;
-
-                    float sign;
-                    if (hq == hq0) sign = 1f;
-                    else if (hq == hq1) sign = -1f;
-                    else continue;
-
-                    if (localHq != null && hq != localHq)
-                    {
-                        if (!localHq.IsTargetBeingTracked(unit)) continue;
-                    }
-
-                    float weight = GetUnitWeight(unit);
-                    if (weight <= 0f) continue;
-
-                    GlobalPosition gp = unit.GlobalPosition();
-                    stampList.Add(new UnitStamp { x = gp.x, z = gp.z, weightedSign = sign * weight });
-                }
-
-                // Airbases
-                try
-                {
-                    foreach (var kvp in FactionRegistry.airbaseLookup)
-                    {
-                        Airbase ab = kvp.Value;
-                        if (ab == null) continue;
-                        FactionHQ hq = ab.CurrentHQ;
-                        if (hq == null) continue;
-
-                        float sign;
-                        if (hq == hq0) sign = 1f;
-                        else if (hq == hq1) sign = -1f;
-                        else continue;
-
-                        Vector3 pos = ab.transform.position;
-                        stampList.Add(new UnitStamp { x = pos.x, z = pos.z, weightedSign = sign * cfgWeightAirbase.Value });
-                    }
-                }
-                catch { }
-            }
-
-            void StampInfluence(float worldX, float worldZ, float weightedSign,
-                float halfMap, float cellSize, float radiusSq)
-            {
-                float radius = Mathf.Sqrt(radiusSq);
-                int minGX = Mathf.Max(0, Mathf.FloorToInt((worldX - radius + halfMap) / cellSize));
-                int maxGX = Mathf.Min(gridRes - 1, Mathf.CeilToInt((worldX + radius + halfMap) / cellSize));
-                int minGZ = Mathf.Max(0, Mathf.FloorToInt((worldZ - radius + halfMap) / cellSize));
-                int maxGZ = Mathf.Min(gridRes - 1, Mathf.CeilToInt((worldZ + radius + halfMap) / cellSize));
-
-                for (int gx = minGX; gx <= maxGX; gx++)
-                {
-                    float wx = (gx + 0.5f) * cellSize - halfMap;
-                    float dx = wx - worldX;
-                    float dxSq = dx * dx;
-
-                    for (int gz = minGZ; gz <= maxGZ; gz++)
-                    {
-                        float wz = (gz + 0.5f) * cellSize - halfMap;
-                        float dz = wz - worldZ;
-                        float distSq = dxSq + dz * dz;
-
-                        if (distSq < radiusSq)
-                        {
-                            float t = 1f - distSq / radiusSq;
-                            influenceGrid[gx, gz] += weightedSign * t;
-                        }
-                    }
-                }
-            }
-
-            float GetUnitWeight(Unit unit)
-            {
-                if (unit is PilotDismounted) return 0f;
-                if (unit is Aircraft) return cfgWeightAircraft.Value;
-                if (unit is Ship) return cfgWeightShip.Value;
-                if (unit is GroundVehicle) return cfgWeightVehicle.Value;
-                if (unit is Building) return cfgWeightBuilding.Value;
-                return 0f;
-            }
-
-            // ==================== Rendering ====================
-
-            void RenderToTextureAsync()
-            {
-                float territoryAlpha = Mathf.Clamp01(cfgTerritoryAlpha.Value);
-                Color32 clear = new Color32(0, 0, 0, 0);
-
-                byte c0r = (byte)(Mathf.Clamp01(color0.r) * 255);
-                byte c0g = (byte)(Mathf.Clamp01(color0.g) * 255);
-                byte c0b = (byte)(Mathf.Clamp01(color0.b) * 255);
-                byte c1r = (byte)(Mathf.Clamp01(color1.r) * 255);
-                byte c1g = (byte)(Mathf.Clamp01(color1.g) * 255);
-                byte c1b = (byte)(Mathf.Clamp01(color1.b) * 255);
-
-                float lineWidthSq = 0.7f * 0.7f;
-                float dashThreshSq = 0.15f * 0.15f;
-
-                for (int x = 0; x < gridRes; x++)
-                {
-                    for (int y = 0; y < gridRes; y++)
-                    {
-                        float val = influenceGrid[x, y];
-                        int idx = y * gridRes + x;
-                        float absVal = val > 0 ? val : -val;
-
-                        if (absVal > 5f)
-                        {
-                            float strength = absVal * 0.02f;
-                            if (strength > 1f) strength = 1f;
-                            byte a = (byte)(strength * territoryAlpha * 255f);
-                            if (a < 2) { pixels[idx] = clear; }
-                            else if (val > 0)
-                                pixels[idx] = new Color32(c0r, c0g, c0b, a);
-                            else
-                                pixels[idx] = new Color32(c1r, c1g, c1b, a);
-                            continue;
-                        }
-
-                        float gx = 0f, gy = 0f;
-                        if (x > 0 && x < gridRes - 1)
-                            gx = influenceGrid[x + 1, y] - influenceGrid[x - 1, y];
-                        if (y > 0 && y < gridRes - 1)
-                            gy = influenceGrid[x, y + 1] - influenceGrid[x, y - 1];
-                        float gradSq = gx * gx + gy * gy;
-
-                        float lineAlpha = 0f;
-                        if (gradSq > 0.000001f)
-                        {
-                            float distSq = (absVal * absVal) / gradSq;
-                            if (distSq < lineWidthSq)
-                            {
-                                lineAlpha = 1f - distSq / lineWidthSq;
-                                if (gradSq < dashThreshSq && (x + y) % 8 < 4)
-                                    lineAlpha = 0f;
-                            }
-                        }
-
-                        if (lineAlpha > 0.01f)
-                        {
-                            byte a = (byte)(lineAlpha * lineAlpha * 255f);
-                            if (val > 0)
-                                pixels[idx] = new Color32(c0r, c0g, c0b, a);
-                            else
-                                pixels[idx] = new Color32(c1r, c1g, c1b, a);
-                        }
-                        else if (absVal > 0.01f)
-                        {
-                            float strength = absVal * 0.02f;
-                            if (strength > 1f) strength = 1f;
-                            byte a = (byte)(strength * territoryAlpha * 255f);
-                            if (a < 2) { pixels[idx] = clear; continue; }
-
-                            if (val > 0)
-                                pixels[idx] = new Color32(c0r, c0g, c0b, a);
-                            else
-                                pixels[idx] = new Color32(c1r, c1g, c1b, a);
-                        }
-                        else
-                        {
-                            pixels[idx] = clear;
-                        }
-                    }
-                }
-
-                // Shift indicators
-                if (hasPrevGrid)
-                {
-                    int step = gridRes / 64;
-                    if (step < 4) step = 4;
-                    for (int x = 2; x < gridRes - 2; x += step)
-                    {
-                        for (int y = 2; y < gridRes - 2; y += step)
-                        {
-                            float val = influenceGrid[x, y];
-
-                            bool isFrontline = ZeroCross(val, influenceGrid[x - 1, y])
-                                || ZeroCross(val, influenceGrid[x + 1, y])
-                                || ZeroCross(val, influenceGrid[x, y - 1])
-                                || ZeroCross(val, influenceGrid[x, y + 1]);
-                            if (!isFrontline) continue;
-
-                            float shift = influenceGrid[x, y] - prevInfluenceGrid[x, y];
-                            if (Mathf.Abs(shift) < 0.05f) continue;
-
-                            float ggx = influenceGrid[x + 1, y] - influenceGrid[x - 1, y];
-                            float ggy = influenceGrid[x, y + 1] - influenceGrid[x, y - 1];
-                            float gmSq = ggx * ggx + ggy * ggy;
-                            if (gmSq < 0.0001f) continue;
-
-                            float invGm = 1f / Mathf.Sqrt(gmSq);
-                            float ndx = ggx * invGm;
-                            float ndy = ggy * invGm;
-
-                            int sign = shift > 0 ? 1 : -1;
-                            Color32 shiftCol = shift > 0
-                                ? new Color32(c0r, c0g, c0b, 200)
-                                : new Color32(c1r, c1g, c1b, 200);
-
-                            int chevLen = gridRes / 128;
-                            if (chevLen < 3) chevLen = 3;
-                            for (int s = 1; s <= chevLen; s++)
-                            {
-                                int px = x + Mathf.RoundToInt(ndx * s * sign);
-                                int py = y + Mathf.RoundToInt(ndy * s * sign);
-                                SetPixelSafe(px, py, shiftCol);
-                                if (s < chevLen)
-                                {
-                                    SetPixelSafe(px + Mathf.RoundToInt(-ndy), py + Mathf.RoundToInt(ndx), shiftCol);
-                                    SetPixelSafe(px + Mathf.RoundToInt(ndy), py + Mathf.RoundToInt(-ndx), shiftCol);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            void SetPixelSafe(int x, int y, Color32 col)
-            {
-                if (x >= 0 && x < gridRes && y >= 0 && y < gridRes)
-                    pixels[y * gridRes + x] = col;
-            }
-
-            static bool ZeroCross(float a, float b)
-            {
-                return (a > 0f && b < 0f) || (a < 0f && b > 0f);
-            }
+            GUI.Label(new Rect(16, Screen.height - 65, 800, 50), "Estimated influence from player-visible observations\nBlue: friendly  Red: hostile  Purple: balanced  Gold: opposing support | age " + (Now - controller.Displayed.Snapshot.CapturedAt).ToString("F1") + "s" + (stale ? " | includes last-known contacts" : ""));
+        }
+        void OnDisable()
+        {
+            Reset();
+        }
+        void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            controller?.Dispose();
+            renderer?.Dispose();
         }
     }
 }

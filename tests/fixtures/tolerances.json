@@ -1,0 +1,1 @@
+{"absolute":1e-9,"relative":1e-9,"classification":"exact away from configured epsilon; deterministic ties","rationale":"double support accumulation in stable ordinal permitted-ID order; no candidate reorders sums"}
