@@ -157,6 +157,7 @@ namespace FrontlineMap.Runtime
             stage = WorkStage.Allocation;
             var field = request.Existing ?? new InfluenceBuffers(g);
             var pixels = new Pixel[g.Count];
+            var columnDistanceSquared = request.Existing == null ? new double[g.Columns] : null;
             yield return 0;
             stage = WorkStage.Stamp;
             double radius = settings.Radius, radiusSquared = radius * radius;
@@ -164,24 +165,58 @@ namespace FrontlineMap.Runtime
             if (request.Existing == null)
                 foreach (var stamp in s.Stamps)
                 {
-                    if (stamp.X + radius < g.MinX || stamp.Z + radius < g.MinZ || stamp.X - radius > g.MinX + g.Width || stamp.Z - radius > g.MinZ + g.Height)
+                    // At extreme origin/cell ratios rounded cell centers can coincide. Coordinate bounds
+                    // can then miss oracle-supported cells, so retain exact full-grid predicates instead.
+                    bool fullGrid = Math.Max(Math.Abs(g.MinX), Math.Abs(stamp.X)) / cellX >= 1e12
+                        || Math.Max(Math.Abs(g.MinZ), Math.Abs(stamp.Z)) / cellZ >= 1e12;
+                    if (!fullGrid && (stamp.X + radius < g.MinX || stamp.Z + radius < g.MinZ || stamp.X - radius > g.MinX + g.Width || stamp.Z - radius > g.MinZ + g.Height))
                         continue;
-                    int minX = ClampIndex(Math.Floor((stamp.X - radius - g.MinX) / g.CellX), g.Columns);
-                    int maxX = ClampIndex(Math.Ceiling((stamp.X + radius - g.MinX) / g.CellX), g.Columns);
-                    int minZ = ClampIndex(Math.Floor((stamp.Z - radius - g.MinZ) / g.CellZ), g.Rows);
-                    int maxZ = ClampIndex(Math.Ceiling((stamp.Z + radius - g.MinZ) / g.CellZ), g.Rows);
+                    int minX = fullGrid ? 0 : ClampIndex(Math.Floor((stamp.X - radius - g.MinX) / cellX), g.Columns);
+                    int maxX = fullGrid ? g.Columns - 1 : ClampIndex(Math.Ceiling((stamp.X + radius - g.MinX) / cellX), g.Columns);
+                    int minZ = fullGrid ? 0 : ClampIndex(Math.Floor((stamp.Z - radius - g.MinZ) / cellZ), g.Rows);
+                    int maxZ = fullGrid ? g.Rows - 1 : ClampIndex(Math.Ceiling((stamp.Z + radius - g.MinZ) / cellZ), g.Rows);
                     var target = stamp.Side == Side.Friendly ? field.Friendly : field.Enemy;
                     int cells = 0;
+                    // The same scratch is overwritten for each stamp; never shared with a displayed field.
+                    for (int x = minX; x <= maxX; x++)
+                    {
+                        double dx = g.MinX + (x + .5) * cellX - stamp.X;
+                        columnDistanceSquared[x] = dx * dx;
+                        if (++cells == 128)
+                        {
+                            yield return cells;
+                            cells = 0;
+                        }
+                    }
+                    // One-cell padding covers rounding in the circle-to-grid conversion at ordinary scales.
+                    // Extreme radius/cell ratios keep the rectangle; unsafe coordinates use the full grid.
+                    bool clipRows = !fullGrid && radius / cellX < 1e6;
                     for (int z = minZ; z <= maxZ; z++)
                     {
                         // Preserve the oracle's operations/order, but hoist row invariants.
                         double dz = g.MinZ + (z + .5) * cellZ - stamp.Z;
                         double dzSquared = dz * dz;
                         int row = z * g.Columns;
-                        for (int x = minX; x <= maxX; x++)
+                        int rowMinX = minX, rowMaxX = maxX;
+                        if (clipRows)
                         {
-                            double dx = g.MinX + (x + .5) * cellX - stamp.X;
-                            double distance = dx * dx + dzSquared;
+                            // Addition of a nonnegative dx² cannot satisfy the strict predicate in these rows.
+                            if (dzSquared >= radiusSquared)
+                            {
+                                if (++cells == 128)
+                                {
+                                    yield return cells;
+                                    cells = 0;
+                                }
+                                continue;
+                            }
+                            double span = Math.Sqrt(radiusSquared - dzSquared);
+                            rowMinX = Math.Max(minX, ClampIndex(Math.Floor((stamp.X - span - g.MinX) / cellX) - 1, g.Columns));
+                            rowMaxX = Math.Min(maxX, ClampIndex(Math.Ceiling((stamp.X + span - g.MinX) / cellX) + 1, g.Columns));
+                        }
+                        for (int x = rowMinX; x <= rowMaxX; x++)
+                        {
+                            double distance = columnDistanceSquared[x] + dzSquared;
                             if (distance < radiusSquared)
                                 target[row + x] += stamp.Weight * (1 - distance / radiusSquared);
                             if (++cells == 128)
@@ -195,9 +230,10 @@ namespace FrontlineMap.Runtime
                         yield return cells;
                 }
             stage = WorkStage.Raster;
+            var sampler = new Rasterizer.Sampler(field, settings, request.Width, request.Height);
             for (int i = 0; i < pixels.Length; i++)
             {
-                pixels[i] = Rasterizer.Sample(field, settings, i, request.Width, request.Height);
+                pixels[i] = sampler.Sample(i);
                 if ((i + 1) % 128 == 0)
                     yield return 128;
             }

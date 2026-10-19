@@ -1,9 +1,15 @@
-# FrontlineMap 1.5.2 development candidate
+# FrontlineMap 1.5.3 development candidate
 Estimated influence from player-visible Nuclear Option map observations. Blue friendly support, red hostile support, purple balanced support, gold opposing-support boundaries. Unsupported space means no admitted modeled support, not safety or empty territory. Influence weights are heuristic, not weapon coverage or ownership.
 
 This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has been loaded and exercised in an authorized isolated game copy; broad production gates remain open. Read docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
 
 ## Changes
+Version 1.5.3 separates live contact freshness from spatial authorization: still-known captured positions remain valid across fresh/stale transitions, while removal, owner/weight/type, viewer and map changes continue to revoke immediately. The full-map legend reports live last-known contact count separately from snapshot age and labels recomputation. Captures still use native marker positions; stale inputs never refresh from hidden live transforms.
+
+Replacement jobs reuse per-job distance scratch, clip conservative circular footprints and cache raster invariants. Extreme coordinate/cell ratios fall back to full-grid predicates to preserve oracle correctness. Upload color scratch is reused until disposal. Model classifications and default RGBA are preserved by independent reference tests.
+
+Four configurable RGB colors, fill opacity and line width support presentation tuning. Edit the config then press F10 to reload; configuration-manager changes also apply on the next game update. All settings are validated before replacement. Invalid live changes preserve the working model and display a concise warning. F10 is reserved for reload; physical-key behavior is outside the current native fixture evidence.
+
 Version1.5.2 stages disabled UI objects until setup completes and restores the previous texture if a native UI dirty callback throws during publication. Native fault regressions and current acceptance results are described in docs/RUNTIME_VALIDATION_2026-10-19.md and tests/native/README.md.
 
 Separate friendly/enemy supports; preserve native stale marker positions; reject unresolved/spectator/multisided/jammed contexts; invalidate old-team output; stage complete textures before publication; bounded 128-cell compute chunks; screen-pixel front coverage with repaint on viewport changes; readable opacity; movement arrows removed. Native UI icons and clicks remain above the non-raycasting overlay. Version1.5.1 supports the observed UI/AdditiveMasked map material and native rectangular clipping, clears disabled presentations, and shows a compact colored legend only on the full map. Every-frame admission checks remain; snapshot allocation is deferred to capture cadence. Newly admitted contacts do not cancel still-authorized inputs; captured contact revocations invalidate immediately.

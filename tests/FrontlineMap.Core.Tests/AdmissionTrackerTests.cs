@@ -19,7 +19,6 @@ public class AdmissionTrackerTests
     [InlineData(2, 10, 3, false, false)]
     [InlineData(1, 20, 3, false, false)]
     [InlineData(1, 10, 4, false, false)]
-    [InlineData(1, 10, 3, true, false)]
     [InlineData(1, 10, 3, false, true)]
     public void EveryCapturedAuthorizationChangeRevokes(long id, int owner, double weight, bool stale, bool airbase)
     { var t = new AdmissionTracker(); var first = Scan(t, 10, Token()); t.CommitCapture(); Assert.True(Scan(t, 10, Token(id, owner, weight, stale, airbase)) > first); }
@@ -35,4 +34,14 @@ public class AdmissionTrackerTests
     { var t = new AdmissionTracker(); Scan(t, 10, Token()); t.CommitCapture(); var first = Scan(t, 10, Token(), Token(2)); t.CommitCapture(); Assert.True(Scan(t, 10, Token(2)) > first); }
     [Fact] public void StableScansAllocateNothingAfterCapacityWarmup()
     { var t = new AdmissionTracker(); for (int frame = 0; frame < 10; frame++) { t.Begin(10); for (int i = 0; i < 1000; i++) t.Add(Token(i)); t.Complete(); t.CommitCapture(); } var before = System.GC.GetAllocatedBytesForCurrentThread(); for (int frame = 0; frame < 100; frame++) { t.Begin(10); for (int i = 0; i < 1000; i++) t.Add(Token(i)); t.Complete(); } Assert.Equal(0, System.GC.GetAllocatedBytesForCurrentThread() - before); }
+}
+
+public class FreshnessAdmissionTests
+{
+    static long Scan(AdmissionTracker t, int owner, bool stale, bool present=true, double weight=3){t.Begin(10);if(present)t.Add(new AdmissionToken(1,owner,weight,stale,false));return t.Complete();}
+    [Fact] public void FreshnessChangesDoNotRevokeStillKnownCapturedPositions(){var t=new AdmissionTracker();var first=Scan(t,10,false);t.CommitCapture();for(int i=0;i<100;i++)Assert.Equal(first,Scan(t,10,i%2==0));}
+    [Fact] public void StaleSnapshotRemainsSafeAfterReacquisitionUntilNextCapture(){var t=new AdmissionTracker();var first=Scan(t,10,true);t.CommitCapture();Assert.Equal(first,Scan(t,10,false));}
+    [Fact] public void FreshnessCannotHideActualRevocation(){var t=new AdmissionTracker();var first=Scan(t,10,false);t.CommitCapture();Scan(t,10,true);Assert.True(Scan(t,10,true,false)>first);}
+    [Fact] public void FreshnessCannotHideOwnershipChange(){var t=new AdmissionTracker();var first=Scan(t,10,false);t.CommitCapture();Assert.True(Scan(t,20,true)>first);}
+    [Fact] public void FreshnessCannotHideChangedContributionWeight(){var t=new AdmissionTracker();var first=Scan(t,10,false);t.CommitCapture();Assert.True(Scan(t,10,true,true,4)>first);}
 }

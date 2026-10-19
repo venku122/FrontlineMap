@@ -37,7 +37,10 @@ namespace FrontlineMap.Core
             this.viewer = viewer;
             current.Clear();
         }
-        public void Add(AdmissionToken value) => current.Add(value);
+        // Freshness is presentation metadata, not loss of native knowledge. Previously
+        // visible positions remain known across fresh/stale transitions; actual marker
+        // removal, viewer, owner, type/weight and strategic-kind changes still revoke.
+        public void Add(AdmissionToken value) => current.Add(new AdmissionToken(value.Id, value.Owner, value.Weight, false, value.Airbase));
         public void CommitCapture()
         {
             captured.Clear();

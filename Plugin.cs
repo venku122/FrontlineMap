@@ -29,6 +29,10 @@ namespace FrontlineMap
         private double nextCapture, lastMetric;
         private KeyCode toggle;
         private GUIStyle legendStyle;
+        private OverlayAppearance appearance = OverlayAppearance.Default;
+        private long modelRevision;
+        private volatile bool reloadRequested;
+        private string configurationError;
         private Exception reportedError;
         private double Now => clock.Elapsed.TotalSeconds;
         void Awake()
@@ -40,36 +44,68 @@ namespace FrontlineMap
                     Config.Reload();
                     Logger.LogInfo("Copied legacy config with backup; current config was absent.");
                 }
-                int n = Config.Bind("General", "GridResolution", 512, "64-2048; restart required. Memory grows quadratically.").Value;
-                if (n < 64 || n > 2048)
-                    throw new ArgumentOutOfRangeException("GridResolution");
-                settings = new ModelSettings(n,
-                    Config.Bind("General", "InfluenceRadius", 12000f, "Meters; restart required.").Value,
-                    Config.Bind("General", "UpdateInterval", 5f, "Monotonic seconds; restart required.").Value,
-                    Config.Bind("Visual", "TerritoryAlpha", .16f, "Uniform fill opacity 0-1; restart required. Legacy subtle values are preserved.").Value,
-                    .01, 1e-9,
-                    Config.Bind("Performance", "BudgetMilliseconds", 2f, "Provisional compute slice budget; allocations/capture/upload remain indivisible and unmeasured. Restart required.").Value,
-                    Config.Bind("General", "MaximumAgeSeconds", 15f, "Maximum computation/presentation age, >= UpdateInterval. Restart required.").Value,
-                    Config.Bind("Visual", "LineWidthPixels", 3f, "Opposing-front width in screen pixels; restart required.").Value);
-                adapter = new GameObservationAdapter(
-                    Config.Bind("Weights", "Airbase", 10f, "Heuristic support weight; restart required.").Value,
-                    Config.Bind("Weights", "Ship", 5f, "Heuristic support weight; restart required.").Value,
-                    Config.Bind("Weights", "Vehicle", 3f, "Heuristic support weight; restart required.").Value,
-                    Config.Bind("Weights", "Aircraft", .5f, "Heuristic support weight; restart required.").Value,
-                    Config.Bind("Weights", "Building", 4f, "Heuristic support weight; restart required.").Value);
-                toggle = Config.Bind("General", "ToggleKey", KeyCode.F9, "Show/hide influence; restart required.").Value;
-                diagnostics = Config.Bind("Diagnostics", "Enabled", false, "Opt-in per-update stage/age/resource logging; no unit locations.").Value;
-                exportSnapshots = Config.Bind("Diagnostics", "ExportSnapshots", false, "Capture at most 100 sanitized native-map snapshots locally for replay; contains permitted gameplay positions. Restart required.").Value;
-                if (exportSnapshots)
-                    exportDirectory = System.IO.Path.Combine(Paths.BepInExRootPath, "FrontlineMap-replay", System.Guid.NewGuid().ToString("N"));
-                renderer = new RasterOverlayRenderer();
+                if (!TryApplyConfiguration(true)) { enabled = false; return; }
+                Config.SettingChanged += ConfigurationChanged;
+                Config.ConfigReloaded += ConfigurationReloaded;
+                renderer = new RasterOverlayRenderer { Appearance = appearance };
                 controller = new OverlayController(renderer, () => Now);
                 controller.BeforePublish = RevalidateBeforePublish;
                 SceneManager.sceneLoaded += OnSceneLoaded;
-                Logger.LogInfo("FrontlineMap " + PluginVersion.Value + " development candidate: estimated influence from player-visible observations. Arrows disabled. Legacy SpreadFrames/UseFixedColors retired. All settings require restart.");
+                Logger.LogInfo("FrontlineMap " + PluginVersion.Value + " development candidate: estimated influence from player-visible observations. Arrows disabled. Legacy SpreadFrames/UseFixedColors retired. F10 reloads validated settings.");
             }
             catch (Exception error) { Logger.LogError(error); enabled = false; }
         }
+        bool TryApplyConfiguration(bool initial)
+        {
+            reloadRequested = false;
+            try
+            {
+                int n = Config.Bind("General", "GridResolution", 512, "64-2048; F10 reload. Memory grows quadratically.").Value;
+                if (n < 64 || n > 2048) throw new ArgumentOutOfRangeException("GridResolution");
+                var nextSettings = new ModelSettings(n,
+                    Config.Bind("General", "InfluenceRadius", 12000f, "Meters; F10 reload.").Value,
+                    Config.Bind("General", "UpdateInterval", 5f, "Monotonic seconds; F10 reload.").Value,
+                    Config.Bind("Visual", "TerritoryAlpha", .16f, "Uniform fill opacity 0-1; F10 reload.").Value,
+                    .01, 1e-9,
+                    Config.Bind("Performance", "BudgetMilliseconds", 2f, "Compute slice budget; capture/allocation/upload remain indivisible. F10 reload.").Value,
+                    Config.Bind("General", "MaximumAgeSeconds", 15f, "Maximum computation/presentation age, >= UpdateInterval. F10 reload.").Value,
+                    Config.Bind("Visual", "LineWidthPixels", 3f, "Opposing-front width in screen pixels; F10 reload.").Value);
+                var nextAdapter = new GameObservationAdapter(
+                    Config.Bind("Weights", "Airbase", 10f, "Heuristic support weight; F10 reload.").Value,
+                    Config.Bind("Weights", "Ship", 5f, "Heuristic support weight; F10 reload.").Value,
+                    Config.Bind("Weights", "Vehicle", 3f, "Heuristic support weight; F10 reload.").Value,
+                    Config.Bind("Weights", "Aircraft", .5f, "Heuristic support weight; F10 reload.").Value,
+                    Config.Bind("Weights", "Building", 4f, "Heuristic support weight; F10 reload.").Value);
+                var nextAppearance = new OverlayAppearance(
+                    Config.Bind("Visual", "FriendlyColor", "419BF5", "Six RGB hex digits, optional #. F10 reload.").Value,
+                    Config.Bind("Visual", "EnemyColor", "F05A46", "Six RGB hex digits, optional #. F10 reload.").Value,
+                    Config.Bind("Visual", "BalancedColor", "B182D7", "Six RGB hex digits, optional #. F10 reload.").Value,
+                    Config.Bind("Visual", "FrontColor", "F0E19B", "Six RGB hex digits, optional #. F10 reload.").Value);
+                if (nextAppearance.Friendly == OverlayAppearance.Default.Friendly && nextAppearance.Enemy == OverlayAppearance.Default.Enemy && nextAppearance.Balanced == OverlayAppearance.Default.Balanced && nextAppearance.Front == OverlayAppearance.Default.Front)
+                    nextAppearance = OverlayAppearance.Default;
+                var nextToggle = Config.Bind("General", "ToggleKey", KeyCode.F9, "Show/hide influence; F10 reloads settings.").Value;
+                if (nextToggle == KeyCode.F10) throw new ArgumentException("F10 is reserved for reloading settings.");
+                bool nextDiagnostics = Config.Bind("Diagnostics", "Enabled", false, "Opt-in per-update stage/age/resource logging; no unit locations.").Value;
+                bool nextExports = Config.Bind("Diagnostics", "ExportSnapshots", false, "At most100 sanitized snapshots per process; contains permitted positions. F10 reload.").Value;
+                string nextDirectory = nextExports ? exportDirectory ?? System.IO.Path.Combine(Paths.BepInExRootPath, "FrontlineMap-replay", System.Guid.NewGuid().ToString("N")) : exportDirectory;
+                // All validation precedes replacement. Invalid changes retain the working model/resources.
+                if (!initial) Reset();
+                settings = nextSettings; adapter = nextAdapter; appearance = nextAppearance;
+                toggle = nextToggle; diagnostics = nextDiagnostics; exportSnapshots = nextExports; exportDirectory = nextDirectory;
+                modelRevision++;
+                if (renderer != null) renderer.Appearance = appearance;
+                configurationError = null;
+                return true;
+            }
+            catch (Exception error)
+            {
+                configurationError = "Settings rejected; previous configuration retained: " + error.Message;
+                Logger.LogWarning(configurationError);
+                return false;
+            }
+        }
+        void ConfigurationChanged(object sender, BepInEx.Configuration.SettingChangedEventArgs args) { reloadRequested = true; }
+        void ConfigurationReloaded(object sender, EventArgs args) { reloadRequested = true; }
         void Start()
         {
             if (Chainloader.PluginInfos.ContainsKey("com.yuulf.frontlinemap"))
@@ -141,7 +177,7 @@ namespace FrontlineMap
             return true;
         }
         double captureMilliseconds;
-        SnapshotIdentity Identity() => new SnapshotIdentity(session, mapRevision, policyRevision, 1, sequence);
+        SnapshotIdentity Identity() => new SnapshotIdentity(session, mapRevision, policyRevision, modelRevision, sequence);
         void RevalidateBeforePublish()
         {
             if (!TryRead(out _, out _))
@@ -157,6 +193,12 @@ namespace FrontlineMap
                 return;
             try
             {
+                if (Input.GetKeyDown(KeyCode.F10))
+                {
+                    try { Config.Reload(); reloadRequested = true; }
+                    catch (Exception error) { configurationError = "Settings reload failed: " + error.Message; }
+                }
+                if (reloadRequested) TryApplyConfiguration(false);
                 if (Input.GetKeyDown(toggle))
                 {
                     visible = !visible;
@@ -213,21 +255,21 @@ namespace FrontlineMap
         }
         void OnGUI()
         {
-            if (!DynamicMap.mapMaximized || controller?.Displayed == null || renderer.Binding?.Map == null || !renderer.Binding.Map.gameObject.activeInHierarchy)
+            if (!visible || !DynamicMap.mapMaximized || renderer?.Binding?.Map == null || !renderer.Binding.Map.gameObject.activeInHierarchy)
                 return;
-            bool stale = false;
-            foreach (var s in controller.Displayed.Snapshot.Stamps)
-                if (s.Stale)
-                {
-                    stale = true;
-                    break;
-                }
+            var result = controller?.Displayed;
+            bool snapshotStale = false;
+            if (result != null) foreach (var stamp in result.Snapshot.Stamps) if (stamp.Stale) { snapshotStale = true; break; }
             if (legendStyle == null)
                 legendStyle = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleLeft, fontSize = 12, richText = true, padding = new RectOffset(10, 10, 5, 5) };
-            GUI.Box(new Rect(16, Screen.height - 80, Math.Min(420, Screen.width - 32), 64),
-                "Estimated influence  |  age " + (Now - controller.Displayed.Snapshot.CapturedAt).ToString("F1") + "s\n"
-                + "<color=#419BF5>Friendly</color>  <color=#F05A46>Hostile</color>  <color=#B182D7>Balanced</color>  <color=#F0E19B>Opposing support</color>\n"
-                + "Player-visible observations" + (stale ? " | last-known contacts" : ""), legendStyle);
+            string status = result == null ? (controller.Busy ? "Updating known influence..." : "Waiting for permitted map data...")
+                : "Estimated influence | snapshot age " + (Now - result.Snapshot.CapturedAt).ToString("F1") + "s" + (controller.Busy ? " | refreshing" : "");
+            string labels = "<color=#" + appearance.Friendly + ">Friendly</color>  <color=#" + appearance.Enemy + ">Hostile</color>  <color=#" + appearance.Balanced + ">Balanced</color>  <color=#" + appearance.Front + ">Opposing support</color>";
+            string freshness = "Live last-known contacts: " + adapter.StaleContactCount + (snapshotStale ? " | snapshot includes last-known data" : " | player-visible snapshot");
+            string text = status + "\n" + labels + "\n" + freshness + "\nF10: reload settings";
+            if (configurationError != null) text += "\nSettings rejected; previous configuration retained";
+            float height = configurationError == null ? 82 : 100;
+            GUI.Box(new Rect(16, Screen.height - height - 16, Math.Min(560, Screen.width - 32), height), text, legendStyle);
         }
         void OnDisable()
         {
@@ -236,6 +278,8 @@ namespace FrontlineMap
         void OnDestroy()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            Config.SettingChanged -= ConfigurationChanged;
+            Config.ConfigReloaded -= ConfigurationReloaded;
             controller?.Dispose();
             renderer?.Dispose();
         }

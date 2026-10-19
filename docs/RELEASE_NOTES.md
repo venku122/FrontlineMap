@@ -1,3 +1,11 @@
+# 1.5.3 local continuation
+
+Fresh/stale transitions update live uncertainty metadata without revoking still-known captured positions. Actual revocations still cancel immediately. Native tests pin stale known-position holding, freshness continuity and lost-contact removal. The legend distinguishes live freshness, captured age and recomputation.
+
+Replacement CPU work uses cached column distances, conservative circle clipping and cached raster invariants, preserving operation order. A reproduced extreme-coordinate clipping error uses an exact full-grid fallback. Renderer upload scratch is reused; transactional texture publication remains unchanged.
+
+Validated RGB/opacity/line configuration reloads through F10 or configuration-manager value changes. Invalid reloads retain the working model; full-map labels use the selected palette. Hardware testing is explicitly excluded by the user's request. Final native/performance evidence and source/binary identities are provided in the versioned delivery; portable timings are not an FPS claim.
+
 # 1.5.2 renderer recovery — 2026-10-19
 
 Native fault testing reproduced two failures: an exception after parenting an unfinished UI object left a permanent white rectangle, and a dirty-material callback could throw after RawImage stored a staged texture that the controller then released. UI creation now uses disabled local staging and publishes renderer references only after setup succeeds. Failed construction destroys the pending object. Texture binding restores the previously shown texture on failure and disables the image if restoration also fails.

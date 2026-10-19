@@ -11,6 +11,7 @@ namespace FrontlineMap.Game
         private readonly HashSet<FactionHQ> hqs = new HashSet<FactionHQ>();
         private readonly List<NativeObservation> native = new List<NativeObservation>();
         private readonly List<AirbaseMapIcon> airbaseIcons = new List<AirbaseMapIcon>();
+        public int StaleContactCount { get; private set; }
         private readonly AdmissionTracker admissions = new AdmissionTracker();
         public GameObservationAdapter(double airbase, double ship, double vehicle, double aircraft, double building)
         {
@@ -55,6 +56,7 @@ namespace FrontlineMap.Game
             if (capture) native.Clear();
             admissions.Begin(viewer.GetInstanceID());
             int admittedCount = 0;
+            StaleContactCount = 0;
             // Native markers are the admission source. Never consult allUnits, unitState, health, or true position.
             foreach (var marker in binding.Map.mapIcons)
             {
@@ -75,6 +77,7 @@ namespace FrontlineMap.Game
                 if (mode == FactionMode.Enemy && tracking == null)
                     continue;
                 bool stale = mode == FactionMode.Enemy && !tracking.Observed();
+                if (stale) StaleContactCount++;
                 double observed = tracking == null ? Time.timeSinceLevelLoad : tracking.lastSpottedTime;
                 Vector3 position = icon.iconImage.transform.localPosition;
                 var side = mode == FactionMode.Friendly ? Side.Friendly : Side.Enemy;
@@ -117,6 +120,7 @@ namespace FrontlineMap.Game
 
         public void Clear()
         {
+            StaleContactCount = 0;
             hqs.Clear();
             native.Clear();
             airbaseIcons.Clear();

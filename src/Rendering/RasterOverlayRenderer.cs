@@ -1,5 +1,6 @@
 using System;
 using FrontlineMap.Game;
+using FrontlineMap.Core;
 using FrontlineMap.Runtime;
 using UnityEngine;
 using UnityEngine.UI;
@@ -20,6 +21,8 @@ namespace FrontlineMap.Rendering
         }
         private GameObject overlay;
         private RawImage image;
+        private Color32[] uploadColors;
+        public OverlayAppearance Appearance { get; set; } = OverlayAppearance.Default;
         public MapBinding Binding
         {
             get; set;
@@ -44,10 +47,15 @@ namespace FrontlineMap.Rendering
             {
                 var timer = System.Diagnostics.Stopwatch.StartNew();
                 var g = result.Field.Geometry;
-                var colors = new Color32[result.Pixels.Length];
+                var colors = uploadColors;
+                if (colors == null || colors.Length != result.Pixels.Length)
+                    uploadColors = colors = new Color32[result.Pixels.Length];
+                var palette = Appearance;
+                bool recolor = !ReferenceEquals(palette, OverlayAppearance.Default);
                 for (int i = 0; i < colors.Length; i++)
                 {
                     var p = result.Pixels[i];
+                    if (recolor) p = palette.Apply(p);
                     colors[i] = new Color32(p.R, p.G, p.B, p.A);
                 }
                 LastCopyMilliseconds = timer.Elapsed.TotalMilliseconds;
@@ -146,6 +154,7 @@ namespace FrontlineMap.Rendering
             overlay = null;
             image = null;
             Binding = null;
+            uploadColors = null;
         }
     }
 }
