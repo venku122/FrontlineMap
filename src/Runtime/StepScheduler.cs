@@ -160,6 +160,7 @@ namespace FrontlineMap.Runtime
             yield return 0;
             stage = WorkStage.Stamp;
             double radius = settings.Radius, radiusSquared = radius * radius;
+            double cellX = g.CellX, cellZ = g.CellZ;
             if (request.Existing == null)
                 foreach (var stamp in s.Stamps)
                 {
@@ -172,18 +173,24 @@ namespace FrontlineMap.Runtime
                     var target = stamp.Side == Side.Friendly ? field.Friendly : field.Enemy;
                     int cells = 0;
                     for (int z = minZ; z <= maxZ; z++)
+                    {
+                        // Preserve the oracle's operations/order, but hoist row invariants.
+                        double dz = g.MinZ + (z + .5) * cellZ - stamp.Z;
+                        double dzSquared = dz * dz;
+                        int row = z * g.Columns;
                         for (int x = minX; x <= maxX; x++)
                         {
-                            double dx = g.X(x) - stamp.X, dz = g.Z(z) - stamp.Z;
-                            double distance = dx * dx + dz * dz;
+                            double dx = g.MinX + (x + .5) * cellX - stamp.X;
+                            double distance = dx * dx + dzSquared;
                             if (distance < radiusSquared)
-                                target[z * g.Columns + x] += stamp.Weight * (1 - distance / radiusSquared);
+                                target[row + x] += stamp.Weight * (1 - distance / radiusSquared);
                             if (++cells == 128)
                             {
                                 yield return cells;
                                 cells = 0;
                             }
                         }
+                    }
                     if (cells > 0)
                         yield return cells;
                 }

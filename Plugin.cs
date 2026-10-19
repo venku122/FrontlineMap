@@ -20,13 +20,15 @@ namespace FrontlineMap
         private RasterOverlayRenderer renderer;
         private OverlayController controller;
         private readonly Stopwatch clock = Stopwatch.StartNew();
-        private string geometryKey, admissionKey, lastFailure;
+        private string geometryKey, lastFailure;
+        private long admissionKey = -1;
         private long session = 1, mapRevision, policyRevision, sequence;
         private bool visible = true, diagnostics, exportSnapshots;
         private string exportDirectory;
         private int exported;
         private double nextCapture, lastMetric;
         private KeyCode toggle;
+        private GUIStyle legendStyle;
         private Exception reportedError;
         private double Now => clock.Elapsed.TotalSeconds;
         void Awake()
@@ -85,19 +87,29 @@ namespace FrontlineMap
         void Reset()
         {
             controller?.Cancel(InvalidationReason.Map);
+            adapter?.Clear();
             renderer?.Dispose();
             geometryKey = null;
-            admissionKey = null;
+            admissionKey = -1;
             nextCapture = 0;
         }
-        bool TryRead(out MapBinding binding, out ObservationStamp[] stamps)
+        bool TryRead(out MapBinding binding, out ObservationStamp[] stamps, bool capture = false)
         {
             binding = null;
             stamps = null;
-            if (!visible || !MapBinding.TryCreate(settings.Resolution, out binding))
-                return false;
             double captureStart = Now;
-            if (!adapter.TryRead(binding, out stamps, out var key, out var failure))
+            if (!visible)
+                return false;
+            if (!MapBinding.TryCreate(settings.Resolution, out binding, out var bindingFailure))
+            {
+                if (lastFailure != bindingFailure)
+                {
+                    Logger.LogInfo("Influence hidden: " + bindingFailure);
+                    lastFailure = bindingFailure;
+                }
+                return false;
+            }
+            if (!adapter.TryRead(binding, capture, out stamps, out var key, out var failure))
             {
                 string reason = failure.ToString();
                 if (lastFailure != reason)
@@ -150,7 +162,7 @@ namespace FrontlineMap
                     visible = !visible;
                     Reset();
                 }
-                if (!TryRead(out var binding, out var stamps))
+                if (!TryRead(out var binding, out var stamps, Now >= nextCapture))
                 {
                     Reset();
                     return;
@@ -159,7 +171,18 @@ namespace FrontlineMap
                 controller.SetContext(Identity(), now, true);
                 if (now >= nextCapture)
                 {
+                    if (stamps == null)
+                    {
+                        if (!TryRead(out binding, out stamps, true))
+                        {
+                            Reset();
+                            return;
+                        }
+                        controller.SetContext(Identity(), now, true);
+                    }
                     sequence++;
+                    if (diagnostics)
+                        Logger.LogInfo(string.Format(System.Globalization.CultureInfo.InvariantCulture, "FLM_CAPTURE seq={0} read_ms={1:F3} admitted={2}", sequence, captureMilliseconds, stamps.Length));
                     var snapshot = new ObservationSnapshot(Identity(), binding.Geometry, stamps, now, Time.timeSinceLevelLoad, now + settings.MaximumAge);
                     if (exportSnapshots && exported < 100)
                     {
@@ -183,14 +206,14 @@ namespace FrontlineMap
                 if (diagnostics && controller.Displayed != null && controller.Displayed.Snapshot.CapturedAt != lastMetric)
                 {
                     lastMetric = controller.Displayed.Snapshot.CapturedAt;
-                    Logger.LogInfo(string.Format(System.Globalization.CultureInfo.InvariantCulture, "FLM_METRIC seq={0} capture_ms={1:F3} step_with_prepare_upload_ms={2:F3} age_s={3:F3} owned_textures={4} owned_objects={5} allocate_ms={6:F3} stamp_ms={7:F3} raster_ms={8:F3} max_chunk_ms={9:F3} copy_ms={10:F3} native_prepare_upload_ms={11:F3} published={12} rejected={13} expired={14} pending_replaced={15}", controller.Displayed.Snapshot.Identity.Sequence, captureMilliseconds, (Now - stepStart) * 1000, Now - lastMetric, renderer.OwnedTextures, renderer.OwnedObjects, controller.Metrics.Milliseconds(FrontlineMap.Diagnostics.WorkStage.Allocation), controller.Metrics.Milliseconds(FrontlineMap.Diagnostics.WorkStage.Stamp), controller.Metrics.Milliseconds(FrontlineMap.Diagnostics.WorkStage.Raster), controller.Metrics.MaximumChunkMilliseconds, renderer.LastCopyMilliseconds, renderer.LastUploadMilliseconds, controller.PublishedCount, controller.RejectedCount, controller.ExpiredCount, controller.PendingReplacementCount));
+                    Logger.LogInfo(string.Format(System.Globalization.CultureInfo.InvariantCulture, "FLM_METRIC seq={0} latest_read_ms={1:F3} step_with_prepare_upload_ms={2:F3} age_s={3:F3} owned_textures={4} owned_objects={5} allocate_ms={6:F3} stamp_ms={7:F3} raster_ms={8:F3} max_chunk_ms={9:F3} copy_ms={10:F3} native_prepare_upload_ms={11:F3} published={12} rejected={13} expired={14} pending_replaced={15}", controller.Displayed.Snapshot.Identity.Sequence, captureMilliseconds, (Now - stepStart) * 1000, Now - lastMetric, renderer.OwnedTextures, renderer.OwnedObjects, controller.Metrics.Milliseconds(FrontlineMap.Diagnostics.WorkStage.Allocation), controller.Metrics.Milliseconds(FrontlineMap.Diagnostics.WorkStage.Stamp), controller.Metrics.Milliseconds(FrontlineMap.Diagnostics.WorkStage.Raster), controller.Metrics.MaximumChunkMilliseconds, renderer.LastCopyMilliseconds, renderer.LastUploadMilliseconds, controller.PublishedCount, controller.RejectedCount, controller.ExpiredCount, controller.PendingReplacementCount));
                 }
             }
             catch (Exception error) { Logger.LogError(error); Reset(); }
         }
         void OnGUI()
         {
-            if (controller?.Displayed == null || renderer.Binding?.Map == null || !renderer.Binding.Map.gameObject.activeInHierarchy)
+            if (!DynamicMap.mapMaximized || controller?.Displayed == null || renderer.Binding?.Map == null || !renderer.Binding.Map.gameObject.activeInHierarchy)
                 return;
             bool stale = false;
             foreach (var s in controller.Displayed.Snapshot.Stamps)
@@ -199,7 +222,12 @@ namespace FrontlineMap
                     stale = true;
                     break;
                 }
-            GUI.Label(new Rect(16, Screen.height - 65, 800, 50), "Estimated influence from player-visible observations\nBlue: friendly  Red: hostile  Purple: balanced  Gold: opposing support | age " + (Now - controller.Displayed.Snapshot.CapturedAt).ToString("F1") + "s" + (stale ? " | includes last-known contacts" : ""));
+            if (legendStyle == null)
+                legendStyle = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleLeft, fontSize = 12, richText = true, padding = new RectOffset(10, 10, 5, 5) };
+            GUI.Box(new Rect(16, Screen.height - 80, Math.Min(420, Screen.width - 32), 64),
+                "Estimated influence  |  age " + (Now - controller.Displayed.Snapshot.CapturedAt).ToString("F1") + "s\n"
+                + "<color=#419BF5>Friendly</color>  <color=#F05A46>Hostile</color>  <color=#B182D7>Balanced</color>  <color=#F0E19B>Opposing support</color>\n"
+                + "Player-visible observations" + (stale ? " | last-known contacts" : ""), legendStyle);
         }
         void OnDisable()
         {

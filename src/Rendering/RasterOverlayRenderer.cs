@@ -71,6 +71,7 @@ namespace FrontlineMap.Rendering
             if (overlay == null)
             {
                 overlay = new GameObject("FrontlineMap influence", typeof(RectTransform), typeof(RawImage));
+                overlay.layer = Binding.Rect.gameObject.layer;
                 overlay.transform.SetParent(Binding.Rect, false);
                 overlay.transform.SetAsFirstSibling();
                 image = overlay.GetComponent<RawImage>();
@@ -85,11 +86,15 @@ namespace FrontlineMap.Rendering
                 throw new InvalidOperationException("Map changed before commit");
             // All throwable preparation precedes this single public texture assignment.
             image.texture = h.Texture;
+            image.enabled = true;
         }
         public void Clear()
         {
             if (image != null)
+            {
+                image.enabled = false;
                 image.texture = null;
+            }
         }
         public void Release(IDisposable handle)
         {

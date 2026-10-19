@@ -1,10 +1,10 @@
-# FrontlineMap 1.5.0 development candidate
+# FrontlineMap 1.5.1 development candidate
 Estimated influence from player-visible Nuclear Option map observations. Blue friendly support, red hostile support, purple balanced support, gold opposing-support boundaries. Unsupported space means no admitted modeled support, not safety or empty territory. Influence weights are heuristic, not weapon coverage or ownership.
 
-This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has not been loaded in game or approved for production. Read docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
+This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has been loaded and exercised in an authorized isolated game copy; broad production gates remain open. Read docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
 
 ## Changes
-Separate friendly/enemy supports; preserve native stale marker positions; reject unresolved/spectator/multisided/jammed contexts; invalidate old-team output; stage complete textures before publication; bounded 128-cell compute chunks; screen-pixel front coverage with repaint on viewport changes; readable opacity; movement arrows removed. Native UI icons and clicks remain above the non-raycasting overlay in source; actual masking/order requires target validation.
+Separate friendly/enemy supports; preserve native stale marker positions; reject unresolved/spectator/multisided/jammed contexts; invalidate old-team output; stage complete textures before publication; bounded 128-cell compute chunks; screen-pixel front coverage with repaint on viewport changes; readable opacity; movement arrows removed. Native UI icons and clicks remain above the non-raycasting overlay. Version1.5.1 supports the observed UI/AdditiveMasked map material and native rectangular clipping, clears disabled presentations, and shows a compact colored legend only on the full map. Every-frame admission checks remain; snapshot allocation is deferred to capture cadence. Newly admitted contacts do not cancel still-authorized inputs; captured contact revocations invalidate immediately.
 
 ## Build and test
 Install an appropriate .NET SDK and use your own game's managed assemblies. No proprietary assemblies are included.
@@ -35,7 +35,7 @@ Current config: `BepInEx/config/com.noms.frontlinemap.cfg`. If absent, legacy `c
 
 Weights preserved: airbase10, ship5, vehicle3, aircraft0.5, recognized building4; dismounted pilots/unknown types excluded. SpreadFrames, UseFixedColors, intensity dashes and advance arrows are retired. Colors are viewer-relative and fixed. Existing airbases follow native marker availability, so only permitted own airbase icons contribute on the inspected target; this can differ between map modes.
 
-Diagnostics.Enabled logs capture/allocate/stamp/raster/copy/native-upload timing, age, rejection/expiry/pending and owned resource counters. Diagnostics.ExportSnapshots saves at most100 sanitized snapshots in BepInEx/FrontlineMap-replay/<run>/; these contain permitted gameplay locations and remain local. Replay them with the same CLI. Instrumentation overhead has not been measured on Unity. Treat /tmp tools as session-local; recreate them after reboot.
+Diagnostics.Enabled logs FLM_CAPTURE with the snapshot capture read duration, and FLM_METRIC with separately named latest_read_ms plus allocate/stamp/raster/copy/native-upload timing, age, rejection/expiry/pending and owned resource counters. Diagnostics.ExportSnapshots saves at most100 sanitized snapshots in BepInEx/FrontlineMap-replay/<run>/; these contain permitted gameplay locations and remain local. Replay them with the same CLI. Initial native read-cost measurements improved, but randomized full performance acceptance and instrumentation overhead remain open. Treat /tmp tools as session-local; recreate them after reboot.
 
 ## Installation and rollback
 Use only an explicitly authorized disposable profile. See docs/INSTALL_AND_ROLLBACK.md. No normal profile was changed during development. The project does not modify game simulation or networking. Original MIT license retained.

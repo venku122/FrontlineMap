@@ -1,3 +1,7 @@
+# Runtime continuation scope
+
+Version1.5.1 fixes the native map material rejection and has actual isolated-game evidence. See RUNTIME_VALIDATION_2026-10-18.md for exact executed cases, measured samples and unexecuted gates. Earlier source-only limitations below are historical unless superseded there. Multiclient networking, all maps/themes/DPI/hardware input and complete randomized stock/loader/legacy/candidate performance acceptance remain unverified.
+
 # Known limitations and release blockers
 Readiness is development_only. Successful compilation against real references is not a game load or visibility certification.
 

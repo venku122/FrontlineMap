@@ -8,6 +8,10 @@ namespace FrontlineMap.Game
     public sealed class GameObservationAdapter
     {
         public readonly double AirbaseWeight, ShipWeight, VehicleWeight, AircraftWeight, BuildingWeight;
+        private readonly HashSet<FactionHQ> hqs = new HashSet<FactionHQ>();
+        private readonly List<NativeObservation> native = new List<NativeObservation>();
+        private readonly List<AirbaseMapIcon> airbaseIcons = new List<AirbaseMapIcon>();
+        private readonly AdmissionTracker admissions = new AdmissionTracker();
         public GameObservationAdapter(double airbase, double ship, double vehicle, double aircraft, double building)
         {
             foreach (double w in new[] { airbase, ship, vehicle, aircraft, building })
@@ -19,10 +23,10 @@ namespace FrontlineMap.Game
             AircraftWeight = aircraft;
             BuildingWeight = building;
         }
-        public bool TryRead(MapBinding binding, out ObservationStamp[] observations, out string admissionKey, out CaptureFailure failure)
+        public bool TryRead(MapBinding binding, bool capture, out ObservationStamp[] observations, out long admissionRevision, out CaptureFailure failure)
         {
-            observations = Array.Empty<ObservationStamp>();
-            admissionKey = null;
+            observations = null;
+            admissionRevision = 0;
             failure = CaptureFailure.UnresolvedViewer;
             if (binding == null || binding.Map == null || !MissionManager.IsRunning || !GameManager.GetLocalHQ(out var viewer) || viewer == null || binding.Map.HQ != viewer)
                 return false;
@@ -35,7 +39,7 @@ namespace FrontlineMap.Game
                 return false;
             }
             var factions = FactionRegistry.factions;
-            var hqs = new HashSet<FactionHQ>();
+            hqs.Clear();
             if (factions != null)
                 foreach (var f in factions)
                 {
@@ -48,8 +52,9 @@ namespace FrontlineMap.Game
                 failure = CaptureFailure.UnsupportedFactions;
                 return false;
             }
-            var native = new List<NativeObservation>();
-            var admission = new List<string>();
+            if (capture) native.Clear();
+            admissions.Begin(viewer.GetInstanceID());
+            int admittedCount = 0;
             // Native markers are the admission source. Never consult allUnits, unitState, health, or true position.
             foreach (var marker in binding.Map.mapIcons)
             {
@@ -72,26 +77,52 @@ namespace FrontlineMap.Game
                 bool stale = mode == FactionMode.Enemy && !tracking.Observed();
                 double observed = tracking == null ? Time.timeSinceLevelLoad : tracking.lastSpottedTime;
                 Vector3 position = icon.iconImage.transform.localPosition;
-                string id = "unit:" + unit.persistentID;
                 var side = mode == FactionMode.Friendly ? Side.Friendly : Side.Enemy;
-                native.Add(new NativeObservation(id, side, position.x / binding.Map.mapDisplayFactor, position.y / binding.Map.mapDisplayFactor, weight, observed, stale, true));
-                admission.Add(id + ":" + unit.NetworkHQ.GetInstanceID() + ":" + weight.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + ":" + stale);
+                double x = position.x / binding.Map.mapDisplayFactor, z = position.y / binding.Map.mapDisplayFactor;
+                if (!ModelSettings.Finite(x) || !ModelSettings.Finite(z) || !ModelSettings.Finite(observed) || ++admittedCount > 100000)
+                {
+                    failure = CaptureFailure.InvalidObservation;
+                    return false;
+                }
+                admissions.Add(new AdmissionToken(((long)unit.GetInstanceID() << 32) | unit.persistentID.Id, unit.NetworkHQ.GetInstanceID(), weight, stale, false));
+                if (capture)
+                    native.Add(new NativeObservation("unit:" + unit.persistentID, side, x, z, weight, observed, stale, true));
             }
             // Native airbase markers are generated only from HQ.GetAirbases on this target.
-            foreach (var icon in binding.Map.GetComponentsInChildren<AirbaseMapIcon>(true))
+            binding.Map.GetComponentsInChildren(true, airbaseIcons);
+            foreach (var icon in airbaseIcons)
             {
-                if (icon == null || icon.airbase == null || !Visible(icon) || icon.airbase.CurrentHQ != viewer)
+                if (AirbaseWeight <= 0 || icon == null || icon.airbase == null || !Visible(icon) || icon.airbase.CurrentHQ != viewer)
                     continue;
                 var position = icon.iconImage.transform.localPosition;
-                string id = "airbase:" + icon.airbase.GetInstanceID();
-                native.Add(new NativeObservation(id, Side.Friendly, position.x / binding.Map.mapDisplayFactor, position.y / binding.Map.mapDisplayFactor, AirbaseWeight, Time.timeSinceLevelLoad, false, true));
-                admission.Add(id + ":" + viewer.GetInstanceID());
+                double x = position.x / binding.Map.mapDisplayFactor, z = position.y / binding.Map.mapDisplayFactor;
+                if (!ModelSettings.Finite(x) || !ModelSettings.Finite(z) || ++admittedCount > 100000)
+                {
+                    failure = CaptureFailure.InvalidObservation;
+                    return false;
+                }
+                admissions.Add(new AdmissionToken(icon.airbase.GetInstanceID(), viewer.GetInstanceID(), AirbaseWeight, false, true));
+                if (capture)
+                    native.Add(new NativeObservation("airbase:" + icon.airbase.GetInstanceID(), Side.Friendly, x, z, AirbaseWeight, Time.timeSinceLevelLoad, false, true));
             }
-            admission.Sort(StringComparer.Ordinal);
-            admissionKey = viewer.GetInstanceID() + "|" + string.Join("|", admission);
-            return ObservationPolicy.TrySanitize(ViewerMode.Assigned, hqs.Count, native, out observations, out failure);
+            admissionRevision = admissions.Complete();
+            failure = CaptureFailure.None;
+            if (!capture)
+                return true;
+            if (!ObservationPolicy.TrySanitize(ViewerMode.Assigned, hqs.Count, native, out observations, out failure))
+                return false;
+            admissions.CommitCapture();
+            return true;
         }
-        private static bool Visible(MapIcon icon) => icon.gameObject.activeSelf && icon.iconImage != null && icon.iconImage.enabled && icon.iconImage.color.a > 0;
+
+        public void Clear()
+        {
+            hqs.Clear();
+            native.Clear();
+            airbaseIcons.Clear();
+            admissions.Clear();
+        }
+        private static bool Visible(MapIcon icon) => icon.gameObject.activeInHierarchy && icon.iconImage != null && icon.iconImage.gameObject.activeInHierarchy && icon.iconImage.enabled && icon.iconImage.color.a > 0;
         private double Weight(Unit unit)
         {
             if (unit is PilotDismounted)

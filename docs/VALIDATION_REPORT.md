@@ -1,3 +1,7 @@
+# Current validation status
+
+Version1.5.1 has executed native runtime evidence and88passing pure tests. See [runtime report](RUNTIME_VALIDATION_2026-10-18.md) for scope, fixes, measured samples and remaining gates. The historical1.5.0 source-only report below is retained for provenance; it does not describe the current target-load status.
+
 # Validation report
 Readiness: **development_only**. Source and target-reference builds are usable development artifacts. Production runtime gates are open.
 

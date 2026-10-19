@@ -33,6 +33,42 @@ public class LifecycleTests
             Owned--;
         }
     }
+    [Fact]
+    public void CapturedCohortRevocationClearsDisplayedAndPendingWorkDuringPrepare()
+    {
+        var admissions = new AdmissionTracker();
+        var a = new AdmissionToken(1, 10, 3, false, false);
+        var b = new AdmissionToken(2, 10, 3, false, false);
+        admissions.Begin(10); admissions.Add(a); admissions.Complete(); admissions.CommitCapture();
+        SnapshotIdentity Identity(long sequence) => new SnapshotIdentity(1, 1, admissions.Revision, 1, sequence);
+        var original = ScalarFieldTests.Snapshot(ScalarFieldTests.Stamp("a"));
+        ObservationSnapshot Snapshot(long sequence, params ObservationStamp[] stamps) => new ObservationSnapshot(Identity(sequence), original.Geometry, stamps, 0, 0, 15);
+        var view = new View();
+        using var controller = new OverlayController(view, () => 0);
+        controller.SetContext(Identity(1), 0, true);
+        controller.Submit(Snapshot(1, ScalarFieldTests.Stamp("a")), ScalarFieldTests.Settings(), 800, 800);
+        controller.Tick(0, 10);
+        Assert.NotNull(controller.Displayed);
+        long initialPolicy = admissions.Revision;
+        admissions.Begin(10); admissions.Add(a); admissions.Add(b); admissions.Complete(); admissions.CommitCapture();
+        Assert.Equal(initialPolicy, admissions.Revision);
+        controller.SetContext(Identity(2), 0, true);
+        var stamps = new[] { ScalarFieldTests.Stamp("a"), ScalarFieldTests.Stamp("b") };
+        controller.Submit(Snapshot(2, stamps), ScalarFieldTests.Settings(), 800, 800);
+        controller.Submit(Snapshot(3, stamps), ScalarFieldTests.Settings(), 800, 800);
+        controller.BeforePublish = () =>
+        {
+            admissions.Begin(10); admissions.Add(b); admissions.Complete();
+            controller.SetContext(Identity(3), 0, true);
+            Assert.Null(controller.Displayed);
+        };
+        controller.Tick(0, 10);
+        Assert.Null(controller.Displayed);
+        Assert.False(controller.Busy);
+        Assert.Equal(0, view.Owned);
+        Assert.Equal(0, view.Visible);
+        Assert.Equal(1, controller.RejectedCount);
+    }
     [Theory]
     [InlineData(InvalidationReason.Team)]
     [InlineData(InvalidationReason.Map)]
