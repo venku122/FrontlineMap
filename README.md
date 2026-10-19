@@ -1,9 +1,11 @@
-# FrontlineMap 1.5.1 development candidate
+# FrontlineMap 1.5.2 development candidate
 Estimated influence from player-visible Nuclear Option map observations. Blue friendly support, red hostile support, purple balanced support, gold opposing-support boundaries. Unsupported space means no admitted modeled support, not safety or empty territory. Influence weights are heuristic, not weapon coverage or ownership.
 
 This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has been loaded and exercised in an authorized isolated game copy; broad production gates remain open. Read docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
 
 ## Changes
+Version1.5.2 stages disabled UI objects until setup completes and restores the previous texture if a native UI dirty callback throws during publication. Native fault regressions and current acceptance results are described in docs/RUNTIME_VALIDATION_2026-10-19.md and tests/native/README.md.
+
 Separate friendly/enemy supports; preserve native stale marker positions; reject unresolved/spectator/multisided/jammed contexts; invalidate old-team output; stage complete textures before publication; bounded 128-cell compute chunks; screen-pixel front coverage with repaint on viewport changes; readable opacity; movement arrows removed. Native UI icons and clicks remain above the non-raycasting overlay. Version1.5.1 supports the observed UI/AdditiveMasked map material and native rectangular clipping, clears disabled presentations, and shows a compact colored legend only on the full map. Every-frame admission checks remain; snapshot allocation is deferred to capture cadence. Newly admitted contacts do not cancel still-authorized inputs; captured contact revocations invalidate immediately.
 
 ## Build and test

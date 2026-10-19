@@ -70,23 +70,60 @@ namespace FrontlineMap.Rendering
                 throw new InvalidOperationException("Map binding lost");
             if (overlay == null)
             {
-                overlay = new GameObject("FrontlineMap influence", typeof(RectTransform), typeof(RawImage));
-                overlay.layer = Binding.Rect.gameObject.layer;
-                overlay.transform.SetParent(Binding.Rect, false);
-                overlay.transform.SetAsFirstSibling();
-                image = overlay.GetComponent<RawImage>();
-                image.raycastTarget = false;
-                var rect = (RectTransform)overlay.transform;
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = Vector2.zero;
-                rect.offsetMax = Vector2.zero;
+                GameObject pending = null;
+                try
+                {
+                    pending = new GameObject("FrontlineMap influence", typeof(RectTransform), typeof(RawImage));
+                    var pendingImage = pending.GetComponent<RawImage>();
+                    // Never attach an enabled, texture-less RawImage to the native canvas.
+                    pendingImage.enabled = false;
+                    pendingImage.raycastTarget = false;
+                    pending.layer = Binding.Rect.gameObject.layer;
+                    pending.transform.SetParent(Binding.Rect, false);
+                    pending.transform.SetAsFirstSibling();
+                    var rect = (RectTransform)pending.transform;
+                    rect.anchorMin = Vector2.zero;
+                    rect.anchorMax = Vector2.one;
+                    rect.offsetMin = Vector2.zero;
+                    rect.offsetMax = Vector2.zero;
+                    overlay = pending;
+                    image = pendingImage;
+                    pending = null;
+                }
+                finally
+                {
+                    if (pending != null)
+                    {
+                        pending.SetActive(false);
+                        UnityEngine.Object.Destroy(pending);
+                    }
+                }
             }
             if (overlay.transform.parent != Binding.Rect)
                 throw new InvalidOperationException("Map changed before commit");
-            // All throwable preparation precedes this single public texture assignment.
-            image.texture = h.Texture;
-            image.enabled = true;
+            var previousTexture = image.texture;
+            bool previousEnabled = image.enabled;
+            try
+            {
+                image.texture = h.Texture;
+                image.enabled = true;
+            }
+            catch
+            {
+                // UI dirty callbacks can throw after RawImage has already stored the new texture.
+                // The caller releases that staged texture on failure, so restore the shown handle.
+                try
+                {
+                    image.texture = previousTexture;
+                    image.enabled = previousEnabled && previousTexture != null;
+                }
+                catch
+                {
+                    if (image != null)
+                        image.enabled = false;
+                }
+                throw;
+            }
         }
         public void Clear()
         {
