@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework><AssemblyName>FrontlineMap</AssemblyName><LangVersion>latest</LangVersion>
-    <Version>1.5.3</Version><AssemblyVersion>1.5.3.0</AssemblyVersion><FileVersion>1.5.3.0</FileVersion>
+    <Version>1.6.0</Version><AssemblyVersion>1.6.0.0</AssemblyVersion><FileVersion>1.6.0.0</FileVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <!-- CandidateAssemblyFiles can select unrelated same-named DLLs under artifacts before HintPath. -->
     <AssemblySearchPaths>{HintPathFromItem};{TargetFrameworkDirectory}</AssemblySearchPaths>
@@ -10,7 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Plugin.cs;src/**/*.cs" />
-    <Reference Include="Assembly-CSharp;UnityEngine;UnityEngine.CoreModule;UnityEngine.UI;UnityEngine.InputLegacyModule;UnityEngine.IMGUIModule;UnityEngine.TextRenderingModule;UnityEngine.UIModule;Mirage">
+    <Reference Include="Assembly-CSharp;UnityEngine;UnityEngine.CoreModule;UnityEngine.PhysicsModule;UnityEngine.UI;UnityEngine.InputLegacyModule;UnityEngine.IMGUIModule;UnityEngine.TextRenderingModule;UnityEngine.UIModule;Mirage">
       <HintPath>$(ManagedDir)/%(Identity).dll</HintPath><Private>false</Private>
     </Reference>
     <Reference Include="BepInEx"><HintPath>$(LoaderDir)/BepInEx.dll</HintPath><Private>false</Private></Reference>

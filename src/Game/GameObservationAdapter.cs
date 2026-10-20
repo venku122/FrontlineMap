@@ -70,6 +70,7 @@ namespace FrontlineMap.Game
                 if (!hqs.Contains(unit.NetworkHQ))
                     continue;
                 double weight = Weight(unit);
+                var role = Role(icon);
                 if (weight <= 0)
                     continue;
                 var tracking = viewer.GetTrackingData(unit.persistentID);
@@ -87,9 +88,9 @@ namespace FrontlineMap.Game
                     failure = CaptureFailure.InvalidObservation;
                     return false;
                 }
-                admissions.Add(new AdmissionToken(((long)unit.GetInstanceID() << 32) | unit.persistentID.Id, unit.NetworkHQ.GetInstanceID(), weight, stale, false));
+                admissions.Add(new AdmissionToken(((long)unit.GetInstanceID() << 32) | unit.persistentID.Id, unit.NetworkHQ.GetInstanceID(), weight, stale, false, role));
                 if (capture)
-                    native.Add(new NativeObservation("unit:" + unit.persistentID, side, x, z, weight, observed, stale, true));
+                    native.Add(new NativeObservation("unit:" + unit.persistentID, side, x, z, weight, observed, stale, true, role));
             }
             // Native airbase markers are generated only from HQ.GetAirbases on this target.
             binding.Map.GetComponentsInChildren(true, airbaseIcons);
@@ -104,9 +105,9 @@ namespace FrontlineMap.Game
                     failure = CaptureFailure.InvalidObservation;
                     return false;
                 }
-                admissions.Add(new AdmissionToken(icon.airbase.GetInstanceID(), viewer.GetInstanceID(), AirbaseWeight, false, true));
+                admissions.Add(new AdmissionToken(icon.airbase.GetInstanceID(), viewer.GetInstanceID(), AirbaseWeight, false, true, ObservationRole.Airbase));
                 if (capture)
-                    native.Add(new NativeObservation("airbase:" + icon.airbase.GetInstanceID(), Side.Friendly, x, z, AirbaseWeight, Time.timeSinceLevelLoad, false, true));
+                    native.Add(new NativeObservation("airbase:" + icon.airbase.GetInstanceID(), Side.Friendly, x, z, AirbaseWeight, Time.timeSinceLevelLoad, false, true, ObservationRole.Airbase));
             }
             admissionRevision = admissions.Complete();
             failure = CaptureFailure.None;
@@ -127,6 +128,21 @@ namespace FrontlineMap.Game
             admissions.Clear();
         }
         private static bool Visible(MapIcon icon) => icon.gameObject.activeInHierarchy && icon.iconImage != null && icon.iconImage.gameObject.activeInHierarchy && icon.iconImage.enabled && icon.iconImage.color.a > 0;
+        private static ObservationRole Role(UnitMapIcon icon)
+        {
+            var unit = icon.unit;
+            if (unit is Aircraft) return ObservationRole.Aircraft;
+            if (unit is Ship) return ObservationRole.Ship;
+            if (unit is GroundVehicle)
+            {
+                // Native UnitMapIcon.GetInfoText exposes this same name. No private loadout/state is read.
+                string name = unit.unitName ?? "";
+                if (name.IndexOf("SAM", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("SPAAG", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return ObservationRole.AirDefense;
+                return ObservationRole.GroundVehicle;
+            }
+            return unit is Building ? ObservationRole.Building : ObservationRole.Unknown;
+        }
         private double Weight(Unit unit)
         {
             if (unit is PilotDismounted)

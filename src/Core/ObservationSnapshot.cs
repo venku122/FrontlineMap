@@ -55,10 +55,10 @@ namespace FrontlineMap.Core
     }
     public sealed class ObservationStamp
     {
-        public readonly string Id; public readonly Side Side; public readonly double X, Z, Weight, ObservedTime; public readonly bool Stale;
-        public ObservationStamp(string id, Side side, double x, double z, double weight, double observedTime, bool stale)
+        public readonly string Id; public readonly Side Side; public readonly double X, Z, Weight, ObservedTime; public readonly bool Stale; public readonly ObservationRole Role;
+        public ObservationStamp(string id, Side side, double x, double z, double weight, double observedTime, bool stale, ObservationRole role = ObservationRole.Unknown)
         {
-            if (string.IsNullOrEmpty(id) || !ModelSettings.Finite(x) || !ModelSettings.Finite(z) || !ModelSettings.Finite(weight) || weight < 0 || weight > 1e6 || !ModelSettings.Finite(observedTime) || (side != Side.Friendly && side != Side.Enemy))
+            if ((role < ObservationRole.Unknown || role > ObservationRole.AirDefense) || string.IsNullOrEmpty(id) || !ModelSettings.Finite(x) || !ModelSettings.Finite(z) || !ModelSettings.Finite(weight) || weight < 0 || weight > 1e6 || !ModelSettings.Finite(observedTime) || (side != Side.Friendly && side != Side.Enemy))
                 throw new ArgumentOutOfRangeException("observation");
             Id = id;
             Side = side;
@@ -67,15 +67,17 @@ namespace FrontlineMap.Core
             Weight = weight;
             ObservedTime = observedTime;
             Stale = stale;
+            Role = role;
         }
     }
     public sealed class ObservationSnapshot
     {
+        public readonly TerrainCostGrid Terrain;
         public readonly SnapshotIdentity Identity; public readonly MapGeometry Geometry; public readonly double CapturedAt, SimulationTime, ExpiresAt; public IReadOnlyList<ObservationStamp> Stamps
         {
             get;
         }
-        public ObservationSnapshot(SnapshotIdentity identity, MapGeometry geometry, IEnumerable<ObservationStamp> stamps, double capturedAt, double simulationTime, double expiresAt)
+        public ObservationSnapshot(SnapshotIdentity identity, MapGeometry geometry, IEnumerable<ObservationStamp> stamps, double capturedAt, double simulationTime, double expiresAt, TerrainCostGrid terrain = null)
         {
             if (geometry == null || stamps == null || !ModelSettings.Finite(capturedAt) || !ModelSettings.Finite(simulationTime) || !ModelSettings.Finite(expiresAt) || expiresAt < capturedAt)
                 throw new ArgumentOutOfRangeException("snapshot");
@@ -84,6 +86,7 @@ namespace FrontlineMap.Core
                 throw new ArgumentException("Invalid or duplicate permitted IDs");
             Array.Sort(a, (a1, a2) => StringComparer.Ordinal.Compare(a1.Id, a2.Id));
             Stamps = Array.AsReadOnly(a);
+            Terrain = terrain;
             Identity = identity;
             Geometry = geometry;
             CapturedAt = capturedAt;

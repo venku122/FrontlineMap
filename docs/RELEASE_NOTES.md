@@ -1,3 +1,13 @@
+# 1.6.0
+
+- Separate ground, air threat, naval and confidence views; retain Legacy compatibility.
+- Public-marker role metadata, per-role radii and reduced building ground support.
+- Stale confidence decay and contested band; precise gold requires enough confidence.
+- Incremental cached public terrain sampling and bounded land/water path costs.
+- Supported marching-squares vector front with masked3px geometry and bounded segment count.
+- Layer controls, explicit terrain/heuristic legend, schema2 diagnostic exports and Legacy replay guard.
+- Checkpoint1.5.3 preserved before implementation. See RUNTIME_VALIDATION_2026-10-19_V160.md for actual candidate validation and limitations.
+
 # 1.5.3 local continuation
 
 Fresh/stale transitions update live uncertainty metadata without revoking still-known captured positions. Actual revocations still cancel immediately. Native tests pin stale known-position holding, freshness continuity and lost-contact removal. The legend distinguishes live freshness, captured age and recomputation.

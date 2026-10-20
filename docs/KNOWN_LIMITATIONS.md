@@ -1,3 +1,15 @@
+# 1.6.0 limitations
+
+- Role radii, support weights and confidence are heuristics, not actual combat or ownership probabilities.
+- Coarse public terrain sampling can omit narrow crossings; unknown cells block influence. Surface ships ignore seabed slope; draft, currents and game navmesh are not modeled.
+- Air threat has no weapon-specific range, altitude or LOS. Air-defense identification uses native public unit names(SAM/SPAAG).
+- Selected-layer computation saves memory relative to simultaneous four-layer fields but layered jobs add raw/confidence buffers and terrain path work versus Legacy. No unconditional FPS gain is claimed.
+- Native knowledge revocation remains immediate and can briefly hide output during recomputation. Stale confidence updates at capture cadence.
+- More than8192 contour segments uses the contested band only. Schema2 exports omit terrain and cannot be replayed by the Legacy tool.
+- Physical keyboard/mouse/DPI/VR hardware item5 remains excluded from testing by user request.
+
+## Historical limitations
+
 # Runtime continuation scope
 
 Version1.5.1 fixes the native map material rejection and has actual isolated-game evidence. See RUNTIME_VALIDATION_2026-10-18.md for exact executed cases, measured samples and unexecuted gates. Earlier source-only limitations below are historical unless superseded there. Multiclient networking, all maps/themes/DPI/hardware input and complete randomized stock/loader/legacy/candidate performance acceptance remain unverified.

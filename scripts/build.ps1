@@ -6,7 +6,7 @@ $root=Split-Path $PSScriptRoot -Parent
 . (Join-Path $PSScriptRoot 'source-state.ps1')
 if(-not $ManagedDir){$ManagedDir=Join-Path $GameDir 'NuclearOption_Data/Managed'}
 if(-not $LoaderDir){$LoaderDir=Join-Path $GameDir 'BepInEx/core'}
-$managed=@('Assembly-CSharp','UnityEngine','UnityEngine.CoreModule','UnityEngine.UI','UnityEngine.InputLegacyModule','UnityEngine.IMGUIModule','UnityEngine.TextRenderingModule','UnityEngine.UIModule','Mirage')
+$managed=@('Assembly-CSharp','UnityEngine','UnityEngine.CoreModule','UnityEngine.PhysicsModule','UnityEngine.UI','UnityEngine.InputLegacyModule','UnityEngine.IMGUIModule','UnityEngine.TextRenderingModule','UnityEngine.UIModule','Mirage')
 $hashes=@{}
 foreach($name in $managed){$file=Join-Path $ManagedDir "$name.dll";if(-not(Test-Path -LiteralPath $file -PathType Leaf)){throw "Missing game reference: $file"};$hashes["Managed/$name.dll"]=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash}
 $loader=Join-Path $LoaderDir 'BepInEx.dll'

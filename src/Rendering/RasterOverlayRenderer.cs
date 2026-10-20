@@ -12,6 +12,7 @@ namespace FrontlineMap.Rendering
         private sealed class Handle : IDisposable
         {
             public Texture2D Texture;
+            public ContourSegment[] Segments; public double Width; public bool Layered;
             public void Dispose()
             {
                 if (Texture != null)
@@ -21,6 +22,8 @@ namespace FrontlineMap.Rendering
         }
         private GameObject overlay;
         private RawImage image;
+        private FrontContourGraphic contours;
+        public int ContourCount => contours == null ? 0 : contours.Segments.Length;
         private Color32[] uploadColors;
         public OverlayAppearance Appearance { get; set; } = OverlayAppearance.Default;
         public MapBinding Binding
@@ -39,7 +42,7 @@ namespace FrontlineMap.Rendering
         {
             get; private set;
         }
-        public int OwnedObjects => overlay == null ? 0 : 1;
+        public int OwnedObjects => overlay == null ? 0 : (contours == null ? 1 : 2);
         public IDisposable Prepare(FieldResult result)
         {
             Texture2D texture = null;
@@ -67,7 +70,7 @@ namespace FrontlineMap.Rendering
                 texture.Apply(false, true);
                 LastUploadMilliseconds = timer.Elapsed.TotalMilliseconds;
                 OwnedTextures++;
-                return new Handle { Texture = texture };
+                return new Handle { Texture = texture, Segments = result.Contours, Width = result.LineWidthPixels, Layered = result.Field.Confidence != null };
             }
             catch { if (texture != null) UnityEngine.Object.Destroy(texture); throw; }
         }
@@ -78,7 +81,8 @@ namespace FrontlineMap.Rendering
                 throw new InvalidOperationException("Map binding lost");
             if (overlay == null)
             {
-                GameObject pending = null;
+                GameObject pending = null, pendingChild = null;
+                FrontContourGraphic pendingContours = null;
                 try
                 {
                     pending = new GameObject("FrontlineMap influence", typeof(RectTransform), typeof(RawImage));
@@ -94,12 +98,21 @@ namespace FrontlineMap.Rendering
                     rect.anchorMax = Vector2.one;
                     rect.offsetMin = Vector2.zero;
                     rect.offsetMax = Vector2.zero;
+                    if (h.Layered)
+                    {
+                        var child = pendingChild = new GameObject("FrontlineMap contours", typeof(RectTransform), typeof(FrontContourGraphic));
+                        child.transform.SetParent(pending.transform,false); pendingChild = null; child.layer=pending.layer;
+                        var cr=(RectTransform)child.transform;cr.anchorMin=Vector2.zero;cr.anchorMax=Vector2.one;cr.offsetMin=Vector2.zero;cr.offsetMax=Vector2.zero;
+                        pendingContours=child.GetComponent<FrontContourGraphic>();pendingContours.enabled=false;pendingContours.raycastTarget=false;
+                    }
                     overlay = pending;
                     image = pendingImage;
+                    contours = pendingContours;
                     pending = null;
                 }
                 finally
                 {
+                    if (pendingChild != null) { pendingChild.SetActive(false); UnityEngine.Object.Destroy(pendingChild); }
                     if (pending != null)
                     {
                         pending.SetActive(false);
@@ -111,8 +124,17 @@ namespace FrontlineMap.Rendering
                 throw new InvalidOperationException("Map changed before commit");
             var previousTexture = image.texture;
             bool previousEnabled = image.enabled;
+            var previousSegments=contours == null ? null : contours.Segments;
+            double previousWidth=contours == null ? 3 : contours.WidthPixels;
+            Color previousColor=contours == null ? Color.white : contours.color;
+            bool previousContoursEnabled=contours != null && contours.enabled;
             try
             {
+                if (contours != null)
+                {
+                    Color front; ColorUtility.TryParseHtmlString("#"+Appearance.Front,out front);
+                    contours.Set(h.Segments,h.Width,front); contours.enabled=h.Segments.Length>0;
+                }
                 image.texture = h.Texture;
                 image.enabled = true;
             }
@@ -122,19 +144,21 @@ namespace FrontlineMap.Rendering
                 // The caller releases that staged texture on failure, so restore the shown handle.
                 try
                 {
+                    if(contours!=null){contours.Set(previousSegments,previousWidth,previousColor);contours.enabled=previousContoursEnabled;}
                     image.texture = previousTexture;
                     image.enabled = previousEnabled && previousTexture != null;
                 }
                 catch
                 {
-                    if (image != null)
-                        image.enabled = false;
+                    if (image != null) image.enabled = false;
+                    if (contours != null) contours.enabled = false;
                 }
                 throw;
             }
         }
         public void Clear()
         {
+            if(contours!=null){contours.enabled=false;contours.Set(Array.Empty<ContourSegment>(),3,Color.white);}
             if (image != null)
             {
                 image.enabled = false;
@@ -153,6 +177,7 @@ namespace FrontlineMap.Rendering
                 UnityEngine.Object.Destroy(overlay);
             overlay = null;
             image = null;
+            contours = null;
             Binding = null;
             uploadColors = null;
         }

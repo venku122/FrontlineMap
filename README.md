@@ -1,7 +1,16 @@
-# FrontlineMap 1.5.3 development candidate
+# FrontlineMap 1.6.0 development candidate
 Estimated influence from player-visible Nuclear Option map observations. Blue friendly support, red hostile support, purple balanced support, gold opposing-support boundaries. Unsupported space means no admitted modeled support, not safety or empty territory. Influence weights are heuristic, not weapon coverage or ownership.
 
 This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has been loaded and exercised in an authorized isolated game copy; broad production gates remain open. Read docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
+
+## Layered model (1.6.0)
+Ground control is the default. Use the five buttons along the bottom of the full map or `Model.Layer` to select GroundControl, AirThreat, NavalInfluence, Confidence or Legacy. Aircraft and ships cannot claim ground. Buildings supply limited local support. Ground and naval paths follow a cached coarse public terrain grid; air influence stays radial. Unknown terrain blocks propagation. Stale native observations lose half their influence/confidence every120 simulation seconds by default. Blank space means insufficient admitted support.
+
+Purple marks near-balanced opposing support. Gold is a vector contour between supported ground fields with sufficient confidence; low-confidence data may show a subdued band without a precise line. Confidence colors green to amber indicate freshness, not combat strength. Native map icons remain above the overlay. Role radii, weights, slope and confidence are explicit estimates; this is not actual weapon range, radar LOS, capture ownership or a game navigation mesh.
+
+Ground vehicles default6000m, airbases8000m, buildings2000m with0.15 control multiplier; aircraft20000m, identified SAM/SPAAG12000m, ships16000m. `Model.TerrainResolution`128 (32–256), `Confidence.StaleHalfLifeSeconds`120, contested ratio0.2, minimum front confidence0.5. Config descriptions are authoritative for exact key names. Layer changes/reloads validate before replacement. `TerrainEnabled=false` explicitly selects radial distances. Legacy preserves the1.5.3 numerical model and schema1 replay. Layered schema2 exports include roles/settings but omit public terrain arrays; the Legacy replay tool explicitly rejects them rather than report false parity.
+
+See [model semantics](docs/MODEL_SEMANTICS.md) and [1.6.0 local validation](docs/RUNTIME_VALIDATION_2026-10-19_V160.md). Previous1.5.3 measurements below are historical evidence, not1.6.0 performance claims.
 
 ## Changes
 Version 1.5.3 separates live contact freshness from spatial authorization: still-known captured positions remain valid across fresh/stale transitions, while removal, owner/weight/type, viewer and map changes continue to revoke immediately. The full-map legend reports live last-known contact count separately from snapshot age and labels recomputation. Captures still use native marker positions; stale inputs never refresh from hidden live transforms.
@@ -29,7 +38,7 @@ Direct build: `dotnet build FrontlineMap.csproj -c Release -p:GameDir=<your inst
 Windows PowerShell on the inspected host disallowed scripts under its execution policy. Do not bypass that policy. Direct dotnet commands work in an existing SDK shell; the scripts were tested separately under portable PowerShell7.4.13 on Linux. SDK8.0.426 was installed locally under /tmp for this development session, not globally.
 
 ## Configuration and diagnostic capture
-Current config: `BepInEx/config/com.noms.frontlinemap.cfg`. If absent, legacy `com.yuulf.frontlinemap.cfg` is copied with a timestamped backup; existing current config wins. All settings require restart and invalid settings disable the candidate coherently. F9 toggles and clears output. Duplicate legacy GUID disables this candidate; no binaries are deleted.
+Current config: `BepInEx/config/com.noms.frontlinemap.cfg`. If absent, legacy `com.yuulf.frontlinemap.cfg` is copied with a timestamped backup; existing current config wins. F10 or configuration-manager changes reload settings atomically; invalid initial settings disable the candidate coherently. F9 toggles and clears output. Duplicate legacy GUID disables this candidate; no binaries are deleted.
 
 | Setting | Default | Meaning |
 |---|---:|---|
@@ -43,7 +52,7 @@ Current config: `BepInEx/config/com.noms.frontlinemap.cfg`. If absent, legacy `c
 
 Weights preserved: airbase10, ship5, vehicle3, aircraft0.5, recognized building4; dismounted pilots/unknown types excluded. SpreadFrames, UseFixedColors, intensity dashes and advance arrows are retired. Colors are viewer-relative and fixed. Existing airbases follow native marker availability, so only permitted own airbase icons contribute on the inspected target; this can differ between map modes.
 
-Diagnostics.Enabled logs FLM_CAPTURE with the snapshot capture read duration, and FLM_METRIC with separately named latest_read_ms plus allocate/stamp/raster/copy/native-upload timing, age, rejection/expiry/pending and owned resource counters. Diagnostics.ExportSnapshots saves at most100 sanitized snapshots in BepInEx/FrontlineMap-replay/<run>/; these contain permitted gameplay locations and remain local. Replay them with the same CLI. Initial native read-cost measurements improved, but randomized full performance acceptance and instrumentation overhead remain open. Treat /tmp tools as session-local; recreate them after reboot.
+Diagnostics.Enabled logs FLM_CAPTURE with the snapshot capture read duration, and FLM_METRIC with separately named latest_read_ms plus allocate/stamp/raster/copy/native-upload timing, age, rejection/expiry/pending and owned resource counters. Diagnostics.ExportSnapshots saves at most100 sanitized snapshots in BepInEx/FrontlineMap-replay/<run>/; these contain permitted gameplay locations and remain local. Replay schema1 Legacy exports with the same CLI; schema2 layered exports are diagnostic observations only. Initial native read-cost measurements improved, but randomized full performance acceptance and instrumentation overhead remain open. Treat /tmp tools as session-local; recreate them after reboot.
 
 ## Installation and rollback
 Use only an explicitly authorized disposable profile. See docs/INSTALL_AND_ROLLBACK.md. No normal profile was changed during development. The project does not modify game simulation or networking. Original MIT license retained.

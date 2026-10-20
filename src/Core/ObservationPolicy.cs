@@ -9,8 +9,8 @@ namespace FrontlineMap.Core
     // Values admitted by the native-map adapter, never authoritative hidden-world values.
     public sealed class NativeObservation
     {
-        public readonly string Id; public readonly Side Side; public readonly double X, Z, Weight, ObservedAt; public readonly bool Stale, Visible;
-        public NativeObservation(string id, Side side, double x, double z, double weight, double observedAt, bool stale, bool visible)
+        public readonly string Id; public readonly Side Side; public readonly double X, Z, Weight, ObservedAt; public readonly bool Stale, Visible; public readonly ObservationRole Role;
+        public NativeObservation(string id, Side side, double x, double z, double weight, double observedAt, bool stale, bool visible, ObservationRole role = ObservationRole.Unknown)
         {
             Id = id;
             Side = side;
@@ -20,6 +20,7 @@ namespace FrontlineMap.Core
             ObservedAt = observedAt;
             Stale = stale;
             Visible = visible;
+            Role = role;
         }
     }
     public static class ObservationPolicy
@@ -43,7 +44,7 @@ namespace FrontlineMap.Core
             {
                 foreach (var v in native)
                     if (v.Visible && v.Weight > 0)
-                        list.Add(new ObservationStamp(v.Id, v.Side, v.X, v.Z, v.Weight, v.ObservedAt, v.Stale));
+                        list.Add(new ObservationStamp(v.Id, v.Side, v.X, v.Z, v.Weight, v.ObservedAt, v.Stale, v.Role));
             }
             catch (ArgumentException) { failure = CaptureFailure.InvalidObservation; return false; }
             stamps = list.ToArray();

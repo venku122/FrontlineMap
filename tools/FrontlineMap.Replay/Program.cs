@@ -16,6 +16,8 @@ var reports=new List<object>();bool allPass=true;
 foreach(string file in Directory.GetFiles(fixtures,"*.snapshot.json").OrderBy(v=>v,StringComparer.Ordinal))
 {
     using var document=JsonDocument.Parse(File.ReadAllText(file));var input=document.RootElement;
+    if ((input.TryGetProperty("schema", out var schema) && schema.GetInt32()!=1) || input.TryGetProperty("model", out _))
+        throw new NotSupportedException("Replay supports Legacy schema1 only. Layered schema2 exports contain observations and require local terrain; cannot compare as Legacy.");
     int n=input.GetProperty("resolution").GetInt32();double radius=input.GetProperty("radius").GetDouble();
     var bounds=input.GetProperty("bounds").EnumerateArray().Select(v=>v.GetDouble()).ToArray();
     var g=new MapGeometry(bounds[0],bounds[1],bounds[2],bounds[3],n,n);

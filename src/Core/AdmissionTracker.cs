@@ -7,19 +7,21 @@ namespace FrontlineMap.Core
         public readonly long Id;
         public readonly int Owner;
         public readonly double Weight;
+        public readonly ObservationRole Role;
         public readonly bool Stale, Airbase;
-        public AdmissionToken(long id, int owner, double weight, bool stale, bool airbase)
+        public AdmissionToken(long id, int owner, double weight, bool stale, bool airbase, ObservationRole role = ObservationRole.Unknown)
         {
             Id = id;
             Owner = owner;
             Weight = weight;
+            Role = role;
             Stale = stale;
             Airbase = airbase;
         }
-        public override int GetHashCode() => Id.GetHashCode() ^ Owner ^ Weight.GetHashCode() ^ (Stale ? 17 : 0) ^ (Airbase ? 31 : 0);
+        public override int GetHashCode() => Id.GetHashCode() ^ Owner ^ Weight.GetHashCode() ^ (int)Role ^ (Stale ? 17 : 0) ^ (Airbase ? 31 : 0);
         public override bool Equals(object other) => other is AdmissionToken token && Equals(token);
         public bool Equals(AdmissionToken other) => Id == other.Id && Owner == other.Owner
-            && Weight == other.Weight && Stale == other.Stale && Airbase == other.Airbase;
+            && Weight == other.Weight && Role == other.Role && Stale == other.Stale && Airbase == other.Airbase;
     }
     // Current native admissions are scanned every frame; only revocation of a captured
     // input invalidates existing work. Additions cannot reveal extra information in an
@@ -40,7 +42,7 @@ namespace FrontlineMap.Core
         // Freshness is presentation metadata, not loss of native knowledge. Previously
         // visible positions remain known across fresh/stale transitions; actual marker
         // removal, viewer, owner, type/weight and strategic-kind changes still revoke.
-        public void Add(AdmissionToken value) => current.Add(new AdmissionToken(value.Id, value.Owner, value.Weight, false, value.Airbase));
+        public void Add(AdmissionToken value) => current.Add(new AdmissionToken(value.Id, value.Owner, value.Weight, false, value.Airbase, value.Role));
         public void CommitCapture()
         {
             captured.Clear();

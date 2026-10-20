@@ -6,11 +6,13 @@ namespace FrontlineMap.Core
     {
         public readonly MapGeometry Geometry;
         public readonly double[] Friendly, Enemy;
-        public InfluenceBuffers(MapGeometry geometry)
+        public readonly double[] RawFriendly, RawEnemy, Confidence;
+        public InfluenceBuffers(MapGeometry geometry, bool layered = false)
         {
             Geometry = geometry;
             Friendly = new double[geometry.Count];
             Enemy = new double[geometry.Count];
+            if (layered) { RawFriendly = new double[geometry.Count]; RawEnemy = new double[geometry.Count]; Confidence = new double[geometry.Count]; }
         }
     }
 

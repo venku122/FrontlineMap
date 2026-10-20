@@ -21,7 +21,7 @@ namespace FrontlineMap.Core
     }
     public enum PixelKind
     {
-        Unsupported, Friendly, Enemy, Balanced, Front
+        Unsupported, Friendly, Enemy, Balanced, Front, Confidence
     }
     public struct Pixel
     {
@@ -75,6 +75,7 @@ namespace FrontlineMap.Core
             }
             public Pixel Sample(int index)
             {
+                if (settings.Tactical.Layer != TacticalLayer.Legacy) return TacticalField.Sample(field, settings, index);
                 double f = field.Friendly[index], e = field.Enemy[index], d = f - e;
                 var kind = FieldClassifier.Classify(f, e, settings);
                 if (kind == CellClass.Unsupported)

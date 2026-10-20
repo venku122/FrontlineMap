@@ -16,6 +16,7 @@ namespace FrontlineMap
     {
         public const string Guid = "com.noms.frontlinemap";
         private ModelSettings settings;
+        private readonly TerrainSampler terrain = new TerrainSampler();
         private GameObservationAdapter adapter;
         private RasterOverlayRenderer renderer;
         private OverlayController controller;
@@ -29,6 +30,8 @@ namespace FrontlineMap
         private double nextCapture, lastMetric;
         private KeyCode toggle;
         private GUIStyle legendStyle;
+        private static readonly TacticalLayer[] LayerModes = { TacticalLayer.GroundControl, TacticalLayer.AirThreat, TacticalLayer.NavalInfluence, TacticalLayer.Confidence, TacticalLayer.Legacy };
+        private static readonly string[] LayerNames = { "Ground", "Air threat", "Naval", "Confidence", "Legacy" };
         private OverlayAppearance appearance = OverlayAppearance.Default;
         private long modelRevision;
         private volatile bool reloadRequested;
@@ -62,6 +65,21 @@ namespace FrontlineMap
             {
                 int n = Config.Bind("General", "GridResolution", 512, "64-2048; F10 reload. Memory grows quadratically.").Value;
                 if (n < 64 || n > 2048) throw new ArgumentOutOfRangeException("GridResolution");
+                string layerName = Config.Bind("Model", "Layer", "GroundControl", "GroundControl, AirThreat, NavalInfluence, Confidence or Legacy. F10 reload.").Value;
+                if (!Enum.TryParse<TacticalLayer>(layerName, true, out var selectedLayer) || !Enum.IsDefined(typeof(TacticalLayer), selectedLayer)) throw new ArgumentException("Invalid tactical Layer");
+                var tactical = new TacticalSettings(selectedLayer,
+                    Config.Bind("Model", "TerrainEnabled", true, "Coarse public terrain path constraints for ground/naval fields; false uses radial distances.").Value,
+                    Config.Bind("Model", "TerrainResolution", 128, "32-256 static terrain samples per axis; cached, incremental.").Value,
+                    Config.Bind("Radii", "GroundMeters", 6000f, "Heuristic ground presence reach, not a weapon range.").Value,
+                    Config.Bind("Radii", "AirbaseMeters", 8000f, "Heuristic strategic base influence.").Value,
+                    Config.Bind("Radii", "BuildingMeters", 2000f, "Local strategic building influence.").Value,
+                    Config.Bind("Radii", "AircraftMeters", 20000f, "Heuristic air threat reach; no radar/weapon LOS claim.").Value,
+                    Config.Bind("Radii", "AirDefenseMeters", 12000f, "Known SAM/SPAAG map-name heuristic.").Value,
+                    Config.Bind("Radii", "NavalMeters", 16000f, "Heuristic naval reach along sampled water.").Value,
+                    Config.Bind("Confidence", "StaleHalfLifeSeconds", 120f, "Known stale position confidence halves over simulation time; no hidden motion extrapolation.").Value,
+                    Config.Bind("Confidence", "ContestedRatio", .2f, "Contested band: abs(F-E)/(F+E) <= ratio, with both supports present.").Value,
+                    Config.Bind("Confidence", "MinimumFrontConfidence", .5f, "Minimum local confidence to draw precise gold contour.").Value,
+                    Config.Bind("Model", "BuildingControlFactor", .15f, "Multiply building weight in ground control; keeps industry from dominating by count.").Value);
                 var nextSettings = new ModelSettings(n,
                     Config.Bind("General", "InfluenceRadius", 12000f, "Meters; F10 reload.").Value,
                     Config.Bind("General", "UpdateInterval", 5f, "Monotonic seconds; F10 reload.").Value,
@@ -69,7 +87,7 @@ namespace FrontlineMap
                     .01, 1e-9,
                     Config.Bind("Performance", "BudgetMilliseconds", 2f, "Compute slice budget; capture/allocation/upload remain indivisible. F10 reload.").Value,
                     Config.Bind("General", "MaximumAgeSeconds", 15f, "Maximum computation/presentation age, >= UpdateInterval. F10 reload.").Value,
-                    Config.Bind("Visual", "LineWidthPixels", 3f, "Opposing-front width in screen pixels; F10 reload.").Value);
+                    Config.Bind("Visual", "LineWidthPixels", 3f, "Opposing-front width in screen pixels; F10 reload.").Value, tactical);
                 var nextAdapter = new GameObservationAdapter(
                     Config.Bind("Weights", "Airbase", 10f, "Heuristic support weight; F10 reload.").Value,
                     Config.Bind("Weights", "Ship", 5f, "Heuristic support weight; F10 reload.").Value,
@@ -118,6 +136,7 @@ namespace FrontlineMap
         void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             session++;
+            terrain.Clear();
             Reset();
         }
         void Reset()
@@ -209,6 +228,13 @@ namespace FrontlineMap
                     Reset();
                     return;
                 }
+                bool needsTerrain = settings.Tactical.Layer != TacticalLayer.Legacy && settings.Tactical.Layer != TacticalLayer.AirThreat && settings.Tactical.TerrainEnabled;
+                if (needsTerrain)
+                {
+                    terrain.GetOrBegin(binding.Geometry, settings.Tactical.TerrainResolution);
+                    terrain.Step(Math.Min(2, settings.BudgetMilliseconds));
+                    if (!terrain.Ready) { controller.SetContext(Identity(), Now, false); return; }
+                }
                 double now = Now;
                 controller.SetContext(Identity(), now, true);
                 if (now >= nextCapture)
@@ -225,7 +251,7 @@ namespace FrontlineMap
                     sequence++;
                     if (diagnostics)
                         Logger.LogInfo(string.Format(System.Globalization.CultureInfo.InvariantCulture, "FLM_CAPTURE seq={0} read_ms={1:F3} admitted={2}", sequence, captureMilliseconds, stamps.Length));
-                    var snapshot = new ObservationSnapshot(Identity(), binding.Geometry, stamps, now, Time.timeSinceLevelLoad, now + settings.MaximumAge);
+                    var snapshot = new ObservationSnapshot(Identity(), binding.Geometry, stamps, now, Time.timeSinceLevelLoad, now + settings.MaximumAge, needsTerrain ? terrain.Grid : null);
                     if (exportSnapshots && exported < 100)
                     {
                         System.IO.Directory.CreateDirectory(exportDirectory);
@@ -262,14 +288,27 @@ namespace FrontlineMap
             if (result != null) foreach (var stamp in result.Snapshot.Stamps) if (stamp.Stale) { snapshotStale = true; break; }
             if (legendStyle == null)
                 legendStyle = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleLeft, fontSize = 12, richText = true, padding = new RectOffset(10, 10, 5, 5) };
-            string status = result == null ? (controller.Busy ? "Updating known influence..." : "Waiting for permitted map data...")
-                : "Estimated influence | snapshot age " + (Now - result.Snapshot.CapturedAt).ToString("F1") + "s" + (controller.Busy ? " | refreshing" : "");
-            string labels = "<color=#" + appearance.Friendly + ">Friendly</color>  <color=#" + appearance.Enemy + ">Hostile</color>  <color=#" + appearance.Balanced + ">Balanced</color>  <color=#" + appearance.Front + ">Opposing support</color>";
-            string freshness = "Live last-known contacts: " + adapter.StaleContactCount + (snapshotStale ? " | snapshot includes last-known data" : " | player-visible snapshot");
-            string text = status + "\n" + labels + "\n" + freshness + "\nF10: reload settings";
+            var layer = settings.Tactical.Layer;
+            string title = layer == TacticalLayer.GroundControl ? "Ground control estimate" : layer == TacticalLayer.AirThreat ? "Air threat estimate (no LOS)"
+                : layer == TacticalLayer.NavalInfluence ? "Naval influence estimate" : layer == TacticalLayer.Confidence ? "Ground information confidence" : "Legacy combined influence";
+            string status = result == null ? (controller.Busy ? "Computing..." : "Waiting for permitted data...")
+                : "snapshot age " + (Now - result.Snapshot.CapturedAt).ToString("F1") + "s" + (controller.Busy ? " | refreshing" : "");
+            string labels = layer == TacticalLayer.Confidence ? "Green: fresher known support | amber: older | blank: insufficient support"
+                : "<color=#" + appearance.Friendly + ">Friendly</color>  <color=#" + appearance.Enemy + ">Hostile</color>  <color=#" + appearance.Balanced + ">Contested</color>  <color=#" + appearance.Front + ">Higher-confidence front</color>";
+            if (layer == TacticalLayer.AirThreat || layer == TacticalLayer.NavalInfluence)
+                labels = "<color=#"+appearance.Friendly+">Friendly</color>  <color=#"+appearance.Enemy+">Hostile</color>  <color=#"+appearance.Balanced+">Overlapping influence</color> | no land boundary";
+            if (layer == TacticalLayer.Legacy) labels = labels.Replace("Higher-confidence front", "Opposing support");
+            string terrainStatus = layer == TacticalLayer.Legacy || layer == TacticalLayer.AirThreat ? "Radial heuristic; no terrain/weapon LOS model"
+                : settings.Tactical.TerrainEnabled ? terrain.Status : "Terrain disabled; radial heuristic";
+            string text = title + " | " + status + "\n" + labels + "\nKnown stale contacts: " + adapter.StaleContactCount
+                + (snapshotStale ? " | snapshot includes last-known data" : "") + "\n" + terrainStatus + "\nF9: overlay | F10: reload";
+            if (result != null && result.ContourLimited) text += " | Dense contour: contested band only";
             if (configurationError != null) text += "\nSettings rejected; previous configuration retained";
-            float height = configurationError == null ? 82 : 100;
-            GUI.Box(new Rect(16, Screen.height - height - 16, Math.Min(560, Screen.width - 32), height), text, legendStyle);
+            float height = configurationError == null ? 104 : 120;
+            GUI.Box(new Rect(16, Screen.height - height - 48, Math.Min(660, Screen.width - 32), height), text, legendStyle);
+            for (int i = 0; i < LayerModes.Length; i++)
+                if (GUI.Button(new Rect(16 + i * 105, Screen.height - 40, 101, 26), (layer == LayerModes[i] ? "• " : "") + LayerNames[i]) && layer != LayerModes[i])
+                    Config[new BepInEx.Configuration.ConfigDefinition("Model", "Layer")].BoxedValue = LayerModes[i].ToString();
         }
         void OnDisable()
         {
@@ -280,6 +319,7 @@ namespace FrontlineMap
             SceneManager.sceneLoaded -= OnSceneLoaded;
             Config.SettingChanged -= ConfigurationChanged;
             Config.ConfigReloaded -= ConfigurationReloaded;
+            terrain.Clear();
             controller?.Dispose();
             renderer?.Dispose();
         }

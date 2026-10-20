@@ -1,3 +1,17 @@
+# Model semantics — 1.6.0
+
+Selected-layer field: each admitted native-marker observation has an observable role. Ground uses vehicles/air defense, airbases and reduced building support. AirThreat uses aircraft and publicly named SAM/SPAAG vehicles. NavalInfluence uses ships. Unknown roles contribute only to Legacy. Configured radii are heuristic. Capture admission, viewer-relative allegiance, native stale positions and immediate removal/context revocation retain1.5.3 rules.
+
+Each contribution is `weight * max(0, 1 - distance² / radius²) * confidence`. Fresh confidence is1. Last-known confidence is `2^(-max(0, simulationTime-observedTime)/halfLife)`; default halfLife120s. Position is never extrapolated. Local confidence is scaled total support divided by raw total support; it expresses age of contributing observations, not a calibrated probability of ownership. Map snapshot expiry still uses a monotonic real clock.
+
+Ground/naval distance is a bounded8-neighbor Dijkstra on public static terrain samples, default128². Ground requires positive sea-relative elevation and slope<=35degrees. Surface naval paths require water and ignore seabed slope. Unknown cells and diagonal corner cutting are blocked. The fine-grid sample adds its distance from the reached coarse cell center. Coarse sampling can miss narrow roads/channels; it is deliberately conservative and is not the game's navmesh. AirThreat bypasses terrain and does not model LOS.
+
+Both sides must exceed support threshold for a contested purple band; near balance means `abs(F-E)/(F+E)<=0.2`. Marching squares extracts supported ground equal-influence contours with deterministic saddle handling. Every interpolated endpoint must meet both support and minimum confidence(default0.5). No line is drawn at unsupported edges or on flatzero plateaus. Gold is separate masked, non-raycasting Unity UI geometry. Dense geometry above8192 segments shows the band only, with a visible legend notice. Fill alpha scales with confidence (minimum15% of configured opacity); Confidence layer colors green/amber at configured opacity.
+
+Legacy retains the original combined radial field and raster front, exact scalar/replay oracle behavior. Schema1 exports are unchanged. Schema2 exports contain permitted observations, roles and settings, excluding terrain arrays; Legacy replay rejects schema2. Raw local snapshots may contain gameplay positions and are not included in public deliveries.
+
+## Historical model (1.5.3)
+
 # Correctness baseline model
 Product: estimated influence from player-visible observations. Not authoritative control, safety, weapon range or combat intensity.
 

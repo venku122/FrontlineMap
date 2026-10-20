@@ -19,6 +19,9 @@ namespace FrontlineMap.Runtime
         public readonly InfluenceBuffers Field;
         public readonly Pixel[] Pixels;
         public double ScreenWidth, ScreenHeight;
+        public ContourSegment[] Contours = Array.Empty<ContourSegment>();
+        public bool ContourLimited;
+        public double LineWidthPixels = 3;
         public FieldResult(ObservationSnapshot snapshot, InfluenceBuffers field, Pixel[] pixels)
         {
             Snapshot = snapshot;
@@ -155,14 +158,17 @@ namespace FrontlineMap.Runtime
             var settings = request.Settings;
             var g = s.Geometry;
             stage = WorkStage.Allocation;
-            var field = request.Existing ?? new InfluenceBuffers(g);
+            bool layered = settings.Tactical.Layer != TacticalLayer.Legacy;
+            var field = request.Existing ?? new InfluenceBuffers(g, layered);
             var pixels = new Pixel[g.Count];
             var columnDistanceSquared = request.Existing == null ? new double[g.Columns] : null;
             yield return 0;
             stage = WorkStage.Stamp;
             double radius = settings.Radius, radiusSquared = radius * radius;
             double cellX = g.CellX, cellZ = g.CellZ;
-            if (request.Existing == null)
+            if (request.Existing == null && layered)
+                foreach (var chunk in TacticalField.Calculate(s, settings, field)) yield return chunk;
+            if (request.Existing == null && !layered)
                 foreach (var stamp in s.Stamps)
                 {
                     // At extreme origin/cell ratios rounded cell centers can coincide. Coordinate bounds
@@ -239,7 +245,14 @@ namespace FrontlineMap.Runtime
             }
             if (pixels.Length % 128 != 0)
                 yield return pixels.Length % 128;
-            completed = new FieldResult(s, field, pixels) { ScreenWidth = request.Width, ScreenHeight = request.Height };
+            var contours = new List<ContourSegment>(); bool limited = false;
+            if (settings.Tactical.Layer == TacticalLayer.GroundControl)
+                foreach (var chunk in FrontContours.ExtractSteps(field, settings.SupportThreshold, settings.Epsilon, contours, field.Confidence, settings.Tactical.MinimumFrontConfidence))
+                {
+                    if (contours.Count > 8192) { contours.Clear(); limited = true; break; }
+                    yield return chunk;
+                }
+            completed = new FieldResult(s, field, pixels) { ScreenWidth = request.Width, ScreenHeight = request.Height, Contours = contours.ToArray(), ContourLimited = limited, LineWidthPixels = settings.LineWidthPixels };
         }
         private static int ClampIndex(double value, int length) => (int)Math.Max(0, Math.Min(length - 1, value));
     }
