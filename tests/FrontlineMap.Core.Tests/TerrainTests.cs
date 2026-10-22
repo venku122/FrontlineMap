@@ -13,13 +13,13 @@ public class TerrainTests
         foreach (int chunk in grid.ComputeDistances(x, z, radius, water, output)) Assert.InRange(chunk, 1, 128);
         return output;
     }
-    [Fact] public void DistancesUseHorizontalEightNeighborStepsAndActualSourceOffset()
+    [Fact] public void DistancesSeedReachableNeighborCentersFromActualSource()
     {
         var grid = Grid(3, 2, Enumerable.Repeat(1d, 6).ToArray());
         var d = Distances(grid, -9.25, 20.5);
         Assert.Equal(.25, d[0], 10);
-        Assert.Equal(1.25, d[1], 10);
-        Assert.Equal(.25 + Math.Sqrt(2), d[4], 10);
+        Assert.Equal(.75, d[1], 10);
+        Assert.Equal(1.25, d[4], 10);
         Assert.True(double.IsPositiveInfinity(Distances(grid, radius: .9)[1]));
     }
     [Fact] public void WaterBarrierSeparatesLandAndLandIslandSeparatesWater()

@@ -33,7 +33,7 @@ namespace FrontlineMap.Diagnostics
             if (layered)
             {
                 var t = settings.Tactical;
-                b.Append(",\"replay_scope\":\"observations_only; local terrain required for layered replay\",\"model\":{\"layer\":").Append(Quote(t.Layer.ToString()))
+                b.Append(",\"replay_scope\":").Append(Quote(snapshot.Terrain == null ? "observations_only; local terrain required for layered replay" : "complete_layered_static_terrain")).Append(",\"model\":{\"layer\":").Append(Quote(t.Layer.ToString()))
                  .Append(",\"terrain_enabled\":").Append(t.TerrainEnabled ? "true" : "false").Append(",\"terrain_resolution\":").Append(t.TerrainResolution)
                  .Append(",\"ground_radius\":").Append(Number(t.GroundRadius)).Append(",\"base_radius\":").Append(Number(t.BaseRadius))
                  .Append(",\"building_radius\":").Append(Number(t.BuildingRadius)).Append(",\"air_radius\":").Append(Number(t.AirRadius))
@@ -42,6 +42,17 @@ namespace FrontlineMap.Diagnostics
                  .Append(",\"minimum_front_confidence\":").Append(Number(t.MinimumFrontConfidence)).Append(",\"building_control_factor\":").Append(Number(t.BuildingControlFactor))
                  .Append(",\"opacity\":").Append(Number(settings.Opacity)).Append(",\"support_threshold\":").Append(Number(settings.SupportThreshold))
                  .Append(",\"epsilon\":").Append(Number(settings.Epsilon)).Append(",\"line_width_pixels\":").Append(Number(settings.LineWidthPixels)).Append('}');
+            }
+            if (layered && snapshot.Terrain != null)
+            {
+                var terrain = snapshot.Terrain; var tg = terrain.Geometry;
+                b.Append(",\"terrain\":{\"columns\":").Append(tg.Columns).Append(",\"rows\":").Append(tg.Rows)
+                 .Append(",\"bounds\":[").Append(Number(tg.MinX)).Append(',').Append(Number(tg.MinZ)).Append(',').Append(Number(tg.Width)).Append(',').Append(Number(tg.Height)).Append(']')
+                 .Append(",\"sea_level\":").Append(Number(terrain.SeaLevel)).Append(",\"max_slope_degrees\":").Append(Number(terrain.MaxSlopeDegrees)).Append(",\"heights\":[");
+                for (int i = 0; i < tg.Count; i++) { if (i != 0) b.Append(','); b.Append(Number(terrain.Known[i] ? terrain.Heights[i] : 0)); }
+                b.Append("],\"known\":[");
+                for (int i = 0; i < tg.Count; i++) { if (i != 0) b.Append(','); b.Append(terrain.Known[i] ? "true" : "false"); }
+                b.Append("]}");
             }
             b.Append(",\"stamps\":[");
             bool first = true;

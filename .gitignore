@@ -5,3 +5,10 @@ artifacts/
 .worktrees/
 *.user
 __pycache__/
+
+# Runtime exports and proprietary/deployment inputs stay local.
+**/FrontlineMap-replay/
+/BepInEx/
+/private/
+*.dll
+*.exe

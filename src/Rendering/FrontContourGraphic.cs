@@ -13,6 +13,33 @@ namespace FrontlineMap.Rendering
         Rect previousPixels;
         Canvas previousCanvas; Camera previousCamera; RenderMode previousMode;
         int previousWidth, previousHeight; bool projectionValid;
+        ContourProjectionMetric previousMetric;
+        bool previousMetricValid;
+        Rect previousRect;
+        // Counters are cumulative for this Graphic's lifetime and readable by
+        // runtime diagnostics without per-frame log traffic or sampling allocations.
+        public long MeshBuildCount { get; private set; }
+        public int LastMeshVertexCount { get; private set; }
+        public double LastMeshBuildMilliseconds { get; private set; }
+        public double TotalMeshBuildMilliseconds { get; private set; }
+        public long LastMeshAllocatedBytes { get; private set; } = -1;
+        public long TotalMeshAllocatedBytes { get; private set; }
+        static readonly Func<long> allocatedBytes = CreateAllocationCounter();
+        static Func<long> CreateAllocationCounter()
+        {
+            // net472 compiles against older GC APIs; newer Unity Mono players
+            // can expose this counter. -1 explicitly means unavailable.
+            try
+            {
+                var method = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread", Type.EmptyTypes);
+                if (method == null) return null;
+                var counter = (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), method);
+                counter(); // Some Mono versions expose an unsupported API stub.
+                return counter;
+            }
+            catch (NotSupportedException) { return null; }
+            catch (NotImplementedException) { return null; }
+        }
         protected override void OnEnable() { base.OnEnable(); projectionValid = false; }
         protected override void OnCanvasHierarchyChanged() { base.OnCanvasHierarchyChanged(); projectionValid = false; }
         void LateUpdate()
@@ -25,13 +52,23 @@ namespace FrontlineMap.Rendering
             var projection = camera == null ? Matrix4x4.identity : camera.projectionMatrix;
             var pixels = camera == null ? new Rect(0, 0, Screen.width, Screen.height) : camera.pixelRect;
             var mode = c == null ? RenderMode.ScreenSpaceOverlay : c.renderMode;
-            if (!projectionValid || transformMatrix != previousTransform || camera != previousCamera || c != previousCanvas
-                || view != previousView || projection != previousProjection || pixels != previousPixels || mode != previousMode
+            var screen = camera == null ? transformMatrix : projection * view * transformMatrix;
+            double sx = camera == null ? 1 : pixels.width * .5;
+            double sy = camera == null ? 1 : pixels.height * .5;
+            bool metricValid = ContourProjectionMetric.TryCreate(screen.m00*sx, screen.m01*sx,
+                screen.m10*sy, screen.m11*sy, screen.m30, screen.m31, screen.m33, out var metric);
+            bool mappingChanged = metricValid && previousMetricValid
+                ? !previousMetric.SameWidths(metric)
+                : metricValid != previousMetricValid || transformMatrix != previousTransform
+                    || view != previousView || projection != previousProjection || pixels != previousPixels;
+            if (!projectionValid || mappingChanged || camera != previousCamera || c != previousCanvas
+                || mode != previousMode || rectTransform.rect != previousRect
                 || Screen.width != previousWidth || Screen.height != previousHeight)
             {
                 previousTransform = transformMatrix; previousView = view; previousProjection = projection;
                 previousPixels = pixels; previousCamera = camera; previousCanvas = c; previousMode = mode;
                 previousWidth = Screen.width; previousHeight = Screen.height; projectionValid = true;
+                previousMetric = metric; previousMetricValid = metricValid; previousRect = rectTransform.rect;
                 SetVerticesDirty();
             }
         }
@@ -41,6 +78,20 @@ namespace FrontlineMap.Rendering
             raycastTarget = false; SetVerticesDirty();
         }
         protected override void OnPopulateMesh(VertexHelper vh)
+        {
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            long allocationStarted = allocatedBytes == null ? -1 : allocatedBytes();
+            try { PopulateMesh(vh); }
+            finally
+            {
+                MeshBuildCount++; LastMeshVertexCount = vh.currentVertCount;
+                LastMeshBuildMilliseconds = (System.Diagnostics.Stopwatch.GetTimestamp()-started)*1000.0/System.Diagnostics.Stopwatch.Frequency;
+                TotalMeshBuildMilliseconds += LastMeshBuildMilliseconds;
+                LastMeshAllocatedBytes = allocatedBytes == null ? -1 : allocatedBytes()-allocationStarted;
+                if (LastMeshAllocatedBytes >= 0) TotalMeshAllocatedBytes += LastMeshAllocatedBytes;
+            }
+        }
+        void PopulateMesh(VertexHelper vh)
         {
             vh.Clear(); if (Segments.Length == 0) return;
             var r = rectTransform.rect; var c = canvas;

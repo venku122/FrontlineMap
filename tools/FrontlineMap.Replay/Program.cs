@@ -7,6 +7,11 @@ using FrontlineMap.Diagnostics;
 
 var argsMap=new Dictionary<string,string>();
 for(int i=0;i<args.Length;i+=2){if(i+1>=args.Length)throw new ArgumentException("Expected named option and value");argsMap.Add(args[i],args[i+1]);}
+if (argsMap.TryGetValue("--layered", out var layeredOption))
+{
+    if (layeredOption != "true" && layeredOption != "false") throw new ArgumentException("--layered expects true or false");
+    if (layeredOption == "true") return FrontlineMap.Replay.LayeredReplay.Run(argsMap);
+}
 string fixtures=argsMap["--fixtures"], output=argsMap["--output"];
 if(argsMap["--compare"]!="oracle,candidate")throw new ArgumentException("Supported comparison: oracle,candidate");
 Directory.CreateDirectory(output);

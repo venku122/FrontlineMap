@@ -1,6 +1,6 @@
 {
-  "status": "blocked",
-  "reason": "No authorized target baseline/paired runtime samples. No optimization winner selected. Provisional user settings are not accepted budgets.",
+  "status": "pending_fresh_patched_runtime",
+  "reason": "October 20 v1.6.0 capped target samples exist for the historical DLL; modified source requires a matching fresh build and runtime evidence. Full acceptance also requires uncapped CPU-bound and moving dense multiplayer scenarios.",
   "scenario_ids": [
     "empty",
     "sparse",
@@ -36,5 +36,30 @@
     "interval_s": 5,
     "max_age_s": 15
   },
-  "selection_rationale": "Default configurable development behavior only. Freeze accepted budgets from target data before tuning; retain simpler corrected raster meanwhile."
+  "selection_rationale": "512 is recommended; 2048 remains stress only. Historical capped observations do not define universal performance budgets. Exact-source and loaded-DLL checks plus all required scenario evidence are mandatory for current acceptance.",
+  "recommended_resolution": 512,
+  "stress_only_not_certified_resolutions": [
+    2048
+  ],
+  "historical_observed_resolutions": [
+    512
+  ],
+  "required_executable_gate": "scripts/validate.ps1 -Mode Performance -EvidenceDir <fresh-run>",
+  "historical_evidence": {
+    "directory": "artifacts/runtime-2026-10-20-v160-reverify",
+    "binary_sha256": "68ff5873c284f68984d7634f0c3a418042e0b41da32f257c5cda4462f288098c",
+    "scope": "Capped paused paired samples and capped live single-player Escalation on the recorded i9-10850K/RTX 3090 target; diagnostic overhead included",
+    "paused_mean_frame_ratio": 1.0003874601976686,
+    "live_present_rate_per_second": 59.42199515538826,
+    "live_p99_frame_ms": 21.7467,
+    "native_read_mean_ms": 0.984399098606946,
+    "availability_percent": 97.3029804351801
+  },
+  "unverified_acceptance": [
+    "fresh patched source/DLL native and performance rerun",
+    "uncapped CPU-bound paired trials",
+    "moving dense multiplayer measurements",
+    "2048 performance certification",
+    "other hardware/graphics/settings coverage"
+  ]
 }

@@ -16,6 +16,7 @@ namespace FrontlineMap.Game
         bool failed;
         public TerrainCostGrid Grid { get; private set; }
         public bool Ready => Grid != null;
+        public bool Failed => failed;
         public string Status { get; private set; } = "Terrain unavailable";
         public int KnownCount => knownCount;
         public int LandCount => landCount;

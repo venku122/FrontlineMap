@@ -1,4 +1,4 @@
-# FrontlineMap 1.6.0 development candidate
+# FrontlineMap 1.6.1 development candidate
 Estimated influence from player-visible Nuclear Option map observations. Blue friendly support, red hostile support, purple balanced support, gold opposing-support boundaries. Unsupported space means no admitted modeled support, not safety or empty territory. Influence weights are heuristic, not weapon coverage or ownership.
 
 This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has been loaded and exercised in an authorized isolated game copy; broad production gates remain open. Read docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
@@ -8,11 +8,13 @@ Ground control is the default. Use the five buttons along the bottom of the full
 
 Purple marks near-balanced opposing support. Gold is a vector contour between supported ground fields with sufficient confidence; low-confidence data may show a subdued band without a precise line. Confidence colors green to amber indicate freshness, not combat strength. Native map icons remain above the overlay. Role radii, weights, slope and confidence are explicit estimates; this is not actual weapon range, radar LOS, capture ownership or a game navigation mesh.
 
-Ground vehicles default6000m, airbases8000m, buildings2000m with0.15 control multiplier; aircraft20000m, identified SAM/SPAAG12000m, ships16000m. `Model.TerrainResolution`128 (32–256), `Confidence.StaleHalfLifeSeconds`120, contested ratio0.2, minimum front confidence0.5. Config descriptions are authoritative for exact key names. Layer changes/reloads validate before replacement. `TerrainEnabled=false` explicitly selects radial distances. Legacy preserves the1.5.3 numerical model and schema1 replay. Layered schema2 exports include roles/settings but omit public terrain arrays; the Legacy replay tool explicitly rejects them rather than report false parity.
+Ground vehicles default6000m, airbases8000m, buildings2000m with0.15 control multiplier; aircraft20000m, identified SAM/SPAAG12000m, ships16000m. `Model.TerrainResolution`128 (32–256), `Confidence.StaleHalfLifeSeconds`120, contested ratio0.2, minimum front confidence0.5. Config descriptions are authoritative for exact key names. Layer changes/reloads validate before replacement. `TerrainEnabled=false` explicitly selects radial distances. Legacy preserves the1.5.3 numerical model and schema1 replay. Layered schema2 exports include roles/settings and cached public terrain samples when available. Replay them with `--layered true`; without that option the Legacy runner rejects schema2. Terrain-enabled ground/naval replay requires embedded terrain or an explicit `--terrain <file>` fixture.
 
 See [model semantics](docs/MODEL_SEMANTICS.md) and [1.6.0 local validation](docs/RUNTIME_VALIDATION_2026-10-19_V160.md). Previous1.5.3 measurements below are historical evidence, not1.6.0 performance claims.
 
 ## Changes
+Version 1.6.1 repairs terrain initialization capture allocation and off-center source influence, caches terrain connectivity, reuses contour meshes through rigid map movement, and adds explicit sparse-terrain fallback plus independent layered replay and hash-bound readiness gates. 512 remains recommended; high-resolution and broader multiplayer acceptance remain open.
+
 Version 1.5.3 separates live contact freshness from spatial authorization: still-known captured positions remain valid across fresh/stale transitions, while removal, owner/weight/type, viewer and map changes continue to revoke immediately. The full-map legend reports live last-known contact count separately from snapshot age and labels recomputation. Captures still use native marker positions; stale inputs never refresh from hidden live transforms.
 
 Replacement jobs reuse per-job distance scratch, clip conservative circular footprints and cache raster invariants. Extreme coordinate/cell ratios fall back to full-grid predicates to preserve oracle correctness. Upload color scratch is reused until disposal. Model classifications and default RGBA are preserved by independent reference tests.
@@ -30,6 +32,7 @@ Install an appropriate .NET SDK and use your own game's managed assemblies. No p
 .\scripts\build.ps1 -GameDir 'D:\SteamLibrary\steamapps\common\Nuclear Option'
 dotnet test .\tests\FrontlineMap.Core.Tests -c Release
 dotnet run --project .\tools\FrontlineMap.Replay -c Release -- --fixtures .\tests\fixtures --compare oracle,candidate --output .\artifacts\replay
+dotnet run --project .\tools\FrontlineMap.Replay -c Release -- --fixtures .\tests\fixtures\layered --compare oracle,candidate --layered true --output .\artifacts\replay-layered
 .\scripts\package.ps1 -OutputDir .\artifacts\release
 ```
 
@@ -52,7 +55,7 @@ Current config: `BepInEx/config/com.noms.frontlinemap.cfg`. If absent, legacy `c
 
 Weights preserved: airbase10, ship5, vehicle3, aircraft0.5, recognized building4; dismounted pilots/unknown types excluded. SpreadFrames, UseFixedColors, intensity dashes and advance arrows are retired. Colors are viewer-relative and fixed. Existing airbases follow native marker availability, so only permitted own airbase icons contribute on the inspected target; this can differ between map modes.
 
-Diagnostics.Enabled logs FLM_CAPTURE with the snapshot capture read duration, and FLM_METRIC with separately named latest_read_ms plus allocate/stamp/raster/copy/native-upload timing, age, rejection/expiry/pending and owned resource counters. Diagnostics.ExportSnapshots saves at most100 sanitized snapshots in BepInEx/FrontlineMap-replay/<run>/; these contain permitted gameplay locations and remain local. Replay schema1 Legacy exports with the same CLI; schema2 layered exports are diagnostic observations only. Initial native read-cost measurements improved, but randomized full performance acceptance and instrumentation overhead remain open. Treat /tmp tools as session-local; recreate them after reboot.
+Diagnostics.Enabled logs FLM_CAPTURE with the snapshot capture read duration, and FLM_METRIC with separately named latest_read_ms plus allocate/stamp/raster/copy/native-upload timing, age, rejection/expiry/pending and owned resource counters. Diagnostics.ExportSnapshots saves at most100 sanitized snapshots in BepInEx/FrontlineMap-replay/<run>/; these contain permitted gameplay locations and remain local. Replay schema1 Legacy exports with the same CLI; schema2 layered exports use `--layered true` and the same `--fixtures` argument (a directory or a single exported snapshot). The independent tooling oracle compares all five support/confidence arrays and exact classified RGBA against the incremental production scheduler at absolute+relative1e-9 tolerance. Reports hash snapshot, terrain and RGBA; this is tool parity evidence, not Unity runtime performance or acquisition evidence. Initial native read-cost measurements improved, but randomized full performance acceptance and instrumentation overhead remain open. Treat /tmp tools as session-local; recreate them after reboot.
 
 ## Installation and rollback
 Use only an explicitly authorized disposable profile. See docs/INSTALL_AND_ROLLBACK.md. No normal profile was changed during development. The project does not modify game simulation or networking. Original MIT license retained.

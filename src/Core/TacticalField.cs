@@ -49,10 +49,28 @@ namespace FrontlineMap.Core
             if (paths && terrain == null) yield break;
             var distances = paths ? new double[terrain.Geometry.Count] : null;
             int work = 0;
+            var terrainColumns = paths ? new int[g.Columns] : null;
+            var terrainRows = paths ? new int[g.Rows] : null;
+            if (paths)
+            {
+                // Fine-raster to immutable terrain lookup is shared by all stamps in this job.
+                for (int x = 0; x < g.Columns; x++)
+                {
+                    terrainColumns[x] = terrain.ColumnIndex(g.X(x));
+                    if (++work == 128) { yield return work; work = 0; }
+                }
+                for (int z = 0; z < g.Rows; z++)
+                {
+                    int row = terrain.RowIndex(g.Z(z));
+                    terrainRows[z] = row < 0 ? -1 : row * terrain.Geometry.Columns;
+                    if (++work == 128) { yield return work; work = 0; }
+                }
+            }
             foreach (var stamp in snapshot.Stamps)
             {
                 if (!Profile(stamp, t, out double radius, out double weight)) continue;
                 double confidence = Confidence(stamp, snapshot.SimulationTime, t);
+                int sourceCell = paths ? terrain.CellIndex(stamp.X, stamp.Z) : -1;
                 if (paths)
                     foreach (var chunk in terrain.ComputeDistances(stamp.X, stamp.Z, radius, t.Layer == TacticalLayer.NavalInfluence, distances))
                         yield return chunk;
@@ -69,13 +87,9 @@ namespace FrontlineMap.Core
                     int i=z*g.Columns+x;double px=g.X(x),pz=g.Z(z),dx=px-stamp.X,dz=pz-stamp.Z,d2=dx*dx+dz*dz;
                     if (paths)
                     {
-                        int cell=terrain.CellIndex(px,pz);
-                        if(cell<0) d2=double.PositiveInfinity;
-                        else
-                        {
-                            var tg=terrain.Geometry;double tx=px-tg.X(cell%tg.Columns),tz=pz-tg.Z(cell/tg.Columns);
-                            double path=distances[cell]+Math.Sqrt(tx*tx+tz*tz);d2=path*path;
-                        }
+                        int targetCell = terrainColumns[x] < 0 || terrainRows[z] < 0 ? -1 : terrainRows[z] + terrainColumns[x];
+                        double path = terrain.DistanceAt(px, pz, stamp.X, stamp.Z, t.Layer == TacticalLayer.NavalInfluence, distances, targetCell, sourceCell);
+                        d2 = path * path;
                     }
                     if(d2<rr)
                     {

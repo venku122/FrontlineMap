@@ -27,3 +27,5 @@ Readiness is development_only. Successful compilation against real references is
 - No target game launch, screenshots, multiplayer, other-map-mod coexistence, or real game profile deploy/rollback occurred. Disposable filesystem rollback is tested separately.
 
 Resume with an explicitly authorized disposable game/mod profile, target scenario control, native policy/alignment tests and measured baseline. Production release requires final independent re-review plus all runtime gates, even if source issues are fixed.
+
+Terrain connectivity cache construction is currently indivisible at sampling completion. The approximate2ms ray/scheduler slice does not bound this allocation/setup step, Unity uploads, or individual physics queries.

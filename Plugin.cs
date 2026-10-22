@@ -36,6 +36,7 @@ namespace FrontlineMap
         private long modelRevision;
         private volatile bool reloadRequested;
         private string configurationError;
+        private bool terrainCoverageUnavailable;
         private Exception reportedError;
         private double Now => clock.Elapsed.TotalSeconds;
         void Awake()
@@ -141,6 +142,7 @@ namespace FrontlineMap
         }
         void Reset()
         {
+            terrainCoverageUnavailable = false;
             controller?.Cancel(InvalidationReason.Map);
             adapter?.Clear();
             renderer?.Dispose();
@@ -223,16 +225,21 @@ namespace FrontlineMap
                     visible = !visible;
                     Reset();
                 }
-                if (!TryRead(out var binding, out var stamps, Now >= nextCapture))
+                // Admission/revocation is checked every frame; materialize only after terrain is ready.
+                if (!TryRead(out var binding, out var stamps))
                 {
                     Reset();
                     return;
                 }
                 bool needsTerrain = settings.Tactical.Layer != TacticalLayer.Legacy && settings.Tactical.Layer != TacticalLayer.AirThreat && settings.Tactical.TerrainEnabled;
+                terrainCoverageUnavailable = false;
                 if (needsTerrain)
                 {
                     terrain.GetOrBegin(binding.Geometry, settings.Tactical.TerrainResolution);
                     terrain.Step(Math.Min(2, settings.BudgetMilliseconds));
+                    terrainCoverageUnavailable = TerrainCoverage.IsUnavailable(settings.Tactical.Layer, true,
+                        terrain.Ready, terrain.Failed, terrain.KnownCount, terrain.Grid?.Geometry.Count ?? 0);
+                    if (terrainCoverageUnavailable) { controller.SetContext(Identity(), Now, false); return; }
                     if (!terrain.Ready) { controller.SetContext(Identity(), Now, false); return; }
                 }
                 double now = Now;
@@ -293,6 +300,7 @@ namespace FrontlineMap
                 : layer == TacticalLayer.NavalInfluence ? "Naval influence estimate" : layer == TacticalLayer.Confidence ? "Ground information confidence" : "Legacy combined influence";
             string status = result == null ? (controller.Busy ? "Computing..." : "Waiting for permitted data...")
                 : "snapshot age " + (Now - result.Snapshot.CapturedAt).ToString("F1") + "s" + (controller.Busy ? " | refreshing" : "");
+            if (terrainCoverageUnavailable) status = "Layer unavailable: insufficient terrain coverage";
             string labels = layer == TacticalLayer.Confidence ? "Green: fresher known support | amber: older | blank: insufficient support"
                 : "<color=#" + appearance.Friendly + ">Friendly</color>  <color=#" + appearance.Enemy + ">Hostile</color>  <color=#" + appearance.Balanced + ">Contested</color>  <color=#" + appearance.Front + ">Higher-confidence front</color>";
             if (layer == TacticalLayer.AirThreat || layer == TacticalLayer.NavalInfluence)
@@ -300,12 +308,17 @@ namespace FrontlineMap
             if (layer == TacticalLayer.Legacy) labels = labels.Replace("Higher-confidence front", "Opposing support");
             string terrainStatus = layer == TacticalLayer.Legacy || layer == TacticalLayer.AirThreat ? "Radial heuristic; no terrain/weapon LOS model"
                 : settings.Tactical.TerrainEnabled ? terrain.Status : "Terrain disabled; radial heuristic";
+            if (terrainCoverageUnavailable) terrainStatus = terrain.Failed ? "Terrain sampling failed; choose radial fallback below"
+                : "Known terrain " + terrain.KnownCount + "/" + (terrain.Grid?.Geometry.Count ?? 0) + "; requires at least 50% coverage";
             string text = title + " | " + status + "\n" + labels + "\nKnown stale contacts: " + adapter.StaleContactCount
                 + (snapshotStale ? " | snapshot includes last-known data" : "") + "\n" + terrainStatus + "\nF9: overlay | F10: reload";
             if (result != null && result.ContourLimited) text += " | Dense contour: contested band only";
             if (configurationError != null) text += "\nSettings rejected; previous configuration retained";
             float height = configurationError == null ? 104 : 120;
-            GUI.Box(new Rect(16, Screen.height - height - 48, Math.Min(660, Screen.width - 32), height), text, legendStyle);
+            float bottom = terrainCoverageUnavailable ? 84 : 48;
+            GUI.Box(new Rect(16, Screen.height - height - bottom, Math.Min(660, Screen.width - 32), height), text, legendStyle);
+            if (terrainCoverageUnavailable && GUI.Button(new Rect(26, Screen.height - 80, 330, 26), "Use radial fallback (terrain disabled)"))
+                Config[new BepInEx.Configuration.ConfigDefinition("Model", "TerrainEnabled")].BoxedValue = false;
             for (int i = 0; i < LayerModes.Length; i++)
                 if (GUI.Button(new Rect(16 + i * 105, Screen.height - 40, 101, 26), (layer == LayerModes[i] ? "• " : "") + LayerNames[i]) && layer != LayerModes[i])
                     Config[new BepInEx.Configuration.ConfigDefinition("Model", "Layer")].BoxedValue = LayerModes[i].ToString();

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework><AssemblyName>FrontlineMap</AssemblyName><LangVersion>latest</LangVersion>
-    <Version>1.6.0</Version><AssemblyVersion>1.6.0.0</AssemblyVersion><FileVersion>1.6.0.0</FileVersion>
+    <Version>1.6.1</Version><AssemblyVersion>1.6.1.0</AssemblyVersion><FileVersion>1.6.1.0</FileVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <!-- CandidateAssemblyFiles can select unrelated same-named DLLs under artifacts before HintPath. -->
     <AssemblySearchPaths>{HintPathFromItem};{TargetFrameworkDirectory}</AssemblySearchPaths>
