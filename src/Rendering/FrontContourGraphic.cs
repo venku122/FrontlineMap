@@ -96,21 +96,42 @@ namespace FrontlineMap.Rendering
             vh.Clear(); if (Segments.Length == 0) return;
             var r = rectTransform.rect; var c = canvas;
             Camera camera = c != null && c.renderMode != RenderMode.ScreenSpaceOverlay ? c.worldCamera : null;
+            var screen = rectTransform.localToWorldMatrix;
+            double sx = 1, sy = 1;
+            if (camera != null)
+            {
+                screen = camera.projectionMatrix * camera.worldToCameraMatrix * screen;
+                var pixels = camera.pixelRect; sx = pixels.width*.5; sy = pixels.height*.5;
+            }
+            bool affine = ContourProjectionMetric.TryCreate(screen.m00*sx, screen.m01*sx,
+                screen.m10*sy, screen.m11*sy, screen.m30, screen.m31, screen.m33, out var metric);
+            Color baseTint = color;
             int count = Math.Min(8192, Segments.Length);
             for (int i = 0; i < count; i++)
             {
                 var s = Segments[i]; var a = new Vector2(r.xMin+(float)s.A.U*r.width,r.yMin+(float)s.A.V*r.height);
                 var b = new Vector2(r.xMin+(float)s.B.U*r.width,r.yMin+(float)s.B.V*r.height);
-                Vector2 sa = RectTransformUtility.WorldToScreenPoint(camera,rectTransform.TransformPoint(a));
-                Vector2 sb = RectTransformUtility.WorldToScreenPoint(camera,rectTransform.TransformPoint(b));
-                var d=sb-sa;if(d.sqrMagnitude<1e-8f)continue;
-                var normal=new Vector2(-d.y,d.x).normalized*(float)WidthPixels*.5f;
                 Vector2 ap,am,bp,bm;
-                if(!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform,sa+normal,camera,out ap)
-                    ||!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform,sa-normal,camera,out am)
-                    ||!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform,sb+normal,camera,out bp)
-                    ||!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform,sb-normal,camera,out bm))continue;
-                Color tint=color;tint.a*=(float)s.Confidence;int offset=vh.currentVertCount;
+                if (affine)
+                {
+                    if (!metric.TryGetHalfWidthOffset(b.x-a.x, b.y-a.y, WidthPixels, out double nx, out double ny)) continue;
+                    var normal = new Vector2((float)nx, (float)ny);
+                    ap = a+normal; am = a-normal; bp = b+normal; bm = b-normal;
+                }
+                else
+                {
+                    // Perspective planes with varying clip W retain the exact
+                    // screen-to-plane conversion rather than assuming constant scale.
+                    Vector2 sa = RectTransformUtility.WorldToScreenPoint(camera,rectTransform.TransformPoint(a));
+                    Vector2 sb = RectTransformUtility.WorldToScreenPoint(camera,rectTransform.TransformPoint(b));
+                    var d=sb-sa;if(d.sqrMagnitude<1e-8f)continue;
+                    var normal=new Vector2(-d.y,d.x).normalized*(float)WidthPixels*.5f;
+                    if(!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform,sa+normal,camera,out ap)
+                        ||!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform,sa-normal,camera,out am)
+                        ||!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform,sb+normal,camera,out bp)
+                        ||!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform,sb-normal,camera,out bm))continue;
+                }
+                Color tint=baseTint;tint.a*=(float)s.Confidence;int offset=vh.currentVertCount;
                 vh.AddVert(ap,tint,Vector2.zero);vh.AddVert(am,tint,Vector2.zero);vh.AddVert(bm,tint,Vector2.zero);vh.AddVert(bp,tint,Vector2.zero);
                 vh.AddTriangle(offset,offset+1,offset+2);vh.AddTriangle(offset,offset+2,offset+3);
             }

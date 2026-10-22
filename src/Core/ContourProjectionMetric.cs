@@ -7,9 +7,10 @@ namespace FrontlineMap.Core
     public readonly struct ContourProjectionMetric
     {
         readonly double xLengthSquared, cross, yLengthSquared, minimumStretchSquared;
+        readonly double determinant;
         readonly bool reflected;
-        ContourProjectionMetric(double x, double xy, double y, double minimumStretchSquared, bool reflected)
-        { xLengthSquared = x; cross = xy; yLengthSquared = y; this.minimumStretchSquared = minimumStretchSquared; this.reflected = reflected; }
+        ContourProjectionMetric(double x, double xy, double y, double minimumStretchSquared, double determinant)
+        { xLengthSquared = x; cross = xy; yLengthSquared = y; this.minimumStretchSquared = minimumStretchSquared; this.determinant = determinant; reflected = determinant < 0; }
         public static bool TryCreate(double xx, double xy, double yx, double yy,
             double wx, double wy, double w, out ContourProjectionMetric metric)
         {
@@ -25,7 +26,7 @@ namespace FrontlineMap.Core
             double maximumStretchSquared = .5 * (x+y + Math.Sqrt((x-y)*(x-y) + 4*dot*dot));
             double minimumStretchSquared = determinant * determinant / maximumStretchSquared;
             if (!Finite(minimumStretchSquared) || minimumStretchSquared <= 0) return false;
-            metric = new ContourProjectionMetric(x, dot, y, minimumStretchSquared, determinant < 0);
+            metric = new ContourProjectionMetric(x, dot, y, minimumStretchSquared, determinant);
             return true;
         }
         public bool SameWidths(ContourProjectionMetric other)
@@ -39,6 +40,19 @@ namespace FrontlineMap.Core
                 && Math.Abs(xLengthSquared-other.xLengthSquared) <= tolerance
                 && Math.Abs(yLengthSquared-other.yLengthSquared) <= tolerance
                 && Math.Abs(cross-other.cross) <= tolerance;
+        }
+        public bool TryGetHalfWidthOffset(double dx, double dy, double widthPixels, out double nx, out double ny)
+        {
+            nx = ny = 0;
+            double projectedLengthSquared = dx*(xLengthSquared*dx + cross*dy) + dy*(cross*dx + yLengthSquared*dy);
+            if (determinant == 0 || !Finite(projectedLengthSquared) || projectedLengthSquared < 1e-8
+                || !Finite(widthPixels) || widthPixels < 0) return false;
+            // A^-1 J A d = adj(A^T A) J d / det(A). This gives the
+            // exact local offset without any Unity projection/raycast calls.
+            double factor = widthPixels*.5 / (determinant*Math.Sqrt(projectedLengthSquared));
+            nx = (-cross*dx - yLengthSquared*dy)*factor;
+            ny = (xLengthSquared*dx + cross*dy)*factor;
+            return Finite(nx) && Finite(ny);
         }
         static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
     }
