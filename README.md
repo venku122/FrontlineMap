@@ -1,7 +1,7 @@
 # FrontlineMap 1.6.1 development candidate
 Estimated influence from player-visible Nuclear Option map observations. Blue friendly support, red hostile support, purple balanced support, gold opposing-support boundaries. Unsupported space means no admitted modeled support, not safety or empty territory. Influence weights are heuristic, not weapon coverage or ownership.
 
-This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has been loaded and exercised in an authorized isolated game copy; broad production gates remain open. Read docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
+This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has been loaded and exercised in an authorized isolated game copy; **performance acceptance is blocked** by uncapped and dense multiplayer measurements. Read [current validation](docs/RUNTIME_VALIDATION_2026-10-22_V161.md), docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
 
 ## Layered model (1.6.0)
 Ground control is the default. Use the five buttons along the bottom of the full map or `Model.Layer` to select GroundControl, AirThreat, NavalInfluence, Confidence or Legacy. Aircraft and ships cannot claim ground. Buildings supply limited local support. Ground and naval paths follow a cached coarse public terrain grid; air influence stays radial. Unknown terrain blocks propagation. Stale native observations lose half their influence/confidence every120 simulation seconds by default. Blank space means insufficient admitted support.

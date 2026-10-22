@@ -1,10 +1,10 @@
 # Validation and readiness
 
-The current patched source is **development_only / pending fresh native evidence**. Core, Native, Performance and combined Readiness are separate executable gates. A successful build or Core run does not establish a Unity load, native policy correctness, or performance acceptance.
+The current **1.6.1 development candidate has Core and bounded Native acceptance passing; Performance and combined Readiness are blocked by measured failures**. The uncapped CPU-bound comparison exceeded its10% mean-frame overhead limit (8.696ms enabled versus7.456ms disabled). Dense moving UDP multiplayer missed its50FPS target in both views; cockpit p99 also exceeded33.333ms. Criteria were declared before measurement and remain unchanged.
 
-The October 20, 2026 v1.6.0 run in `artifacts/runtime-2026-10-20-v160-reverify` is historical evidence for DLL SHA256 `68ff5873c284f68984d7634f0c3a418042e0b41da32f257c5cda4462f288098c`. Its `performance-result.json` reports capped paused mean ratio 1.00039, capped live present rate 59.42/s, live p99 21.75 ms, native-read mean 0.984 ms and observed availability 97.30%. These are measurements of that run with diagnostic overhead; they do not certify changed source. [The October 18 report](RUNTIME_VALIDATION_2026-10-18.md) describes the earlier v1.5.1 run, not the current source.
+See [the October22 exact-binary report](RUNTIME_VALIDATION_2026-10-22_V161.md), [machine-readable current readiness](benchmarks/LATEST_READINESS.json), and [performance acceptance](benchmarks/ACCEPTANCE.json). Tested product commit `47f2085b08b77556ed2dd004f37bfeb82d14a5f2`, DLL SHA256 `1b36b26c9c09dda167c39fef5cbb96f8bb3f1ebc118c7f30181cab27aed56f6b`; later documentation commits preserve that product fingerprint. The retained local evidence directory is `artifacts/runtime-2026-10-22-v161`.
 
-512 remains the recommended grid resolution. 2048 is a stress option and is not performance certified. Uncapped CPU-bound and moving dense multiplayer acceptance remain unverified. Single-host capped samples do not establish support across hardware, graphics settings, resolutions or mission compositions. See [performance acceptance](benchmarks/ACCEPTANCE.json) and [target identity](compatibility/TARGET.md).
+512 remains recommended. 2048 remains uncertified. Capped tests passed but do not establish uncapped headroom or support across hardware/settings. Older October18–20 reports are historical evidence for their recorded binaries, not current acceptance. [Target identity](compatibility/TARGET.md) records observed build metadata and the unresolved public version-label difference.
 
 ## Executable gates
 

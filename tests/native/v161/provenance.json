@@ -1,0 +1,90 @@
+{
+  "scope": "Canonical imports/path/environment/authorization adaptation; original executed artifact sources remain separate. Canonical package has help/compile validation only, not a native execution claim.",
+  "new_wrappers": [
+    "guards.py",
+    "run.py"
+  ],
+  "files": [
+    {
+      "canonical": "native_checks.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/native_checks.py",
+      "executed_source_sha256": "a08d24c102ffd0ea17e49957c6a3da8acd99e53e57c2c520f4a9b5236275d55d",
+      "canonical_sha256": "77ad4e6b555067842fdf0b4825d622f654f6862a491cf413ed115104cd7d5920"
+    },
+    {
+      "canonical": "native_export.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/native_export.py",
+      "executed_source_sha256": "376930774664e1c2708d4238ea4b4b755bdf6a4394663922afa571782c4d7a0e",
+      "canonical_sha256": "794f688bfbff44619bbaed13631853ef99b5c249cf278bd0f917e2fdc43ee915"
+    },
+    {
+      "canonical": "moving_contours.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/moving_contours.py",
+      "executed_source_sha256": "2fafdedfe81bdebe3cafbeafef6c9f575cf7d2912a7579cf1d11b2a8df958a84",
+      "canonical_sha256": "2fafdedfe81bdebe3cafbeafef6c9f575cf7d2912a7579cf1d11b2a8df958a84"
+    },
+    {
+      "canonical": "network_smoke.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/network_smoke.py",
+      "executed_source_sha256": "4fbb742a64dbe2e870faef23f50cbeec54dd6f5e53cc5c9c5124bec0a52000a8",
+      "canonical_sha256": "0733f3da6c9fbef63c7f88637c77c85f6f981eac68b273ea2b3e5fbc0b4286a8"
+    },
+    {
+      "canonical": "performance.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/performance.py",
+      "executed_source_sha256": "7b8690cff5f21dd5175946c1ef024168b828d1bd0a75a783f6031029962f88f3",
+      "canonical_sha256": "ba7e6ad6e5f2b99f3219832fd48fbd8b0a63ad5575df1bf18f624c78c8151045"
+    },
+    {
+      "canonical": "uncapped.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/uncapped.py",
+      "executed_source_sha256": "aa45d4a59dfd560d1d8553b7b2adf6db7c8d61fc30cf954010fae0169531c870",
+      "canonical_sha256": "b1e8923db93d51e4086ff53211779f631ff63a377eff0c8acee5982d93b28709"
+    },
+    {
+      "canonical": "dense_relative.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/dense_relative.py",
+      "executed_source_sha256": "d5be6f72ee310695e33616bc50669eedad6c41a9d38950a5a98d0c61b9a0079a",
+      "canonical_sha256": "e97cc89d654cbdaad112947cd0f30976213ddb139d85a8fb7093425dcb737cb1"
+    },
+    {
+      "canonical": "dense_multiplayer.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/dense_multiplayer.py",
+      "executed_source_sha256": "31cdefe044a9d53ce5ed175e105fd1533676eb98424dcba7f9c8737ac92060e5",
+      "canonical_sha256": "68a36395eedccec6323f1c636d5982e7aeb3788f95e4ffe86f3049a58a7b1114"
+    },
+    {
+      "canonical": "fault_checks.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/fault_checks.py",
+      "executed_source_sha256": "4739bb68b6bad0c90136fe6bb418431c712e7dcbd6d5dff90212ba390f14e541",
+      "canonical_sha256": "4739bb68b6bad0c90136fe6bb418431c712e7dcbd6d5dff90212ba390f14e541"
+    },
+    {
+      "canonical": "review_native.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/review_native.py",
+      "executed_source_sha256": "a16fa14d365f4ebaf8e5160746f8304705445a4296888c49e5a1c3cd5859c823",
+      "canonical_sha256": "3053e30cbcc1f5f3a110ce33a37445904c2014a507f2641dcf2a22dd9cf9fe00"
+    },
+    {
+      "canonical": "native_support.py",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/native_v160.py",
+      "executed_source_sha256": "b29e139b7958e0118ed7401001f365a5d2e36ec9b6351c338050eef007618cd2",
+      "canonical_sha256": "e839227feb5ae9a858455a9a94e5c215c5c34668d4b10e9fd20a44a6a7a91430"
+    },
+    {
+      "canonical": "benchmark-process.ps1",
+      "executed_source": "artifacts/runtime-2026-10-22-v161/benchmark-thread-process.ps1",
+      "executed_source_sha256": "9a9472b9cdbfa9c57a9069ad327a9b68e2249ef0b096c4333becf51171808932",
+      "canonical_sha256": "3da78efccc3cb5366b62c5c9212ec04ef651a2501dfde5a42a440d973e5397ba"
+    },
+    {
+      "canonical": "launch.ps1",
+      "executed_source": "artifacts/runtime-2026-10-19-v153/launch-integration.ps1",
+      "executed_source_sha256": "dfee0b5df5787bd585d3b210052b3e36fe564ed452d08ca3129c19f096b9e638",
+      "canonical_sha256": "aea96a91db51553460bc0b24dcb5d0f1fabefb7ccdea11ad428ae185b95ecf6a"
+    }
+  ],
+  "adaptation_notes": [
+    "Dense-relative startup now waits for both native server/client flags to be false, after an observed startup readiness race; initial failed attempt log retained in execution evidence."
+  ]
+}

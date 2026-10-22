@@ -1,0 +1,73 @@
+{
+  "scope": "Attested target and scenario coverage only; does not certify other hardware or resolutions",
+  "status": "blocked",
+  "core": {
+    "layered_replay_sha256": "F54409FDCE67D7B2F981E188B5856BA2B8BC3BF340D8301336851D662D4B224D",
+    "status": "pass",
+    "replay_sha256": "96E23314305149CB688797E4E6477A0A22D0020EB2948A24111FE825D972DCDB",
+    "scope": "Portable model tests, readiness fixtures and synthetic replay; no Unity load or runtime performance claim",
+    "source_tree_sha256": "0f6a8c9812f7d6884ab367f3205f292eaf2fc689427348673313b80abb01c238",
+    "trx_sha256": "B9859B43AA48AC6265EB3C6C81D289CEDCE74392D6B311167F01411073568F9A",
+    "captured_at_utc": "2026-10-22T05:40:25.6997481Z",
+    "gate": "core"
+  },
+  "runtime": {
+    "gate": "target_runtime",
+    "status": "blocked",
+    "gates": [
+      {
+        "gate": "native",
+        "status": "pass",
+        "passed_checks": [
+          "layered_contract",
+          "lifecycle",
+          "map_geometry",
+          "multiplayer_coexistence",
+          "policy",
+          "renderer_faults"
+        ],
+        "missing_checks": [],
+        "source_tree_sha256": "0f6a8c9812f7d6884ab367f3205f292eaf2fc689427348673313b80abb01c238",
+        "binary_sha256": "1b36b26c9c09dda167c39fef5cbb96f8bb3f1ebc118c7f30181cab27aed56f6b",
+        "reason": "Fresh hash-bound evidence covers the required scenarios on the attested target only"
+      },
+      {
+        "gate": "performance",
+        "status": "blocked",
+        "passed_checks": [],
+        "missing_checks": [
+          "paired_capped",
+          "live_capped",
+          "uncapped_cpu_bound",
+          "moving_dense_multiplayer"
+        ],
+        "reason": "report did not succeed"
+      }
+    ],
+    "scope": "Runtime evidence only; invoke validate.ps1 -Mode Target to execute Core as well"
+  },
+  "gate": "readiness",
+  "schema": 1,
+  "implementation_commit": "47f2085b08b77556ed2dd004f37bfeb82d14a5f2",
+  "binary_sha256": "1b36b26c9c09dda167c39fef5cbb96f8bb3f1ebc118c7f30181cab27aed56f6b",
+  "source_tree_sha256": "0f6a8c9812f7d6884ab367f3205f292eaf2fc689427348673313b80abb01c238",
+  "measured_performance": {
+    "passed": [
+      "paired_capped",
+      "live_capped"
+    ],
+    "failed": [
+      "uncapped_cpu_bound",
+      "moving_dense_multiplayer"
+    ],
+    "unmeasured": []
+  },
+  "explanation": "Runtime verifier rejects the unsuccessful aggregate performance report as a whole, so its missing_checks list below is not an assertion that the scenarios were unmeasured. Explicit measured outcomes above come from retained plan/result reports.",
+  "report": "../RUNTIME_VALIDATION_2026-10-22_V161.md",
+  "evidence_manifest_sha256": "99badee7c770b2c51ec335bdc3ec77b1c3f29f5ff0ad1ea083a9f3446973f994",
+  "gate_exit_codes": {
+    "Readiness": 2,
+    "Native": 0,
+    "Performance": 2
+  }
+}
