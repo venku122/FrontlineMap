@@ -1,3 +1,17 @@
+# 1.7.0 knowledge and continuity
+
+Layered models admit own-faction synchronized roster units and own airbases, independent of image.enabled or minimap icon filtering. Only IDs supplied by that roster are resolved; enemy admission requires native visible-marker and viewer-tracking authorization. Enemy positions come directly from the tracking record’s lastKnownPosition, without invoking its live-position grace helper.
+
+Enemy history stores copied values, not live Unit references. Lost markers/tracking retain their original observation time and location. Repeated stale captures cannot rejuvenate them. Hidden movement, ownership/type changes and destruction are not queried. Fresh admitted conflicting identity/owner/role metadata replaces or revokes the copy. Without an authorized death report, hidden death ages exactly like contact loss. Reacquisition refreshes only from admitted native observations.
+
+Default stale half-life is120 simulation seconds, maximum history age900 seconds, capacity4096 FIFO contacts. Age uses simulation time; pause stops aging and time acceleration accelerates it. Invalid/backward time clears history. Maximum age0 disables persistent retention. Confidence attenuates support and appearance; sufficiently uncertain front contours disappear before all historical fill expires. This is a last-known heuristic estimate, never authoritative control.
+
+Presentation hiding is separate from knowledge destruction: map closing and temporary jamming retain copied history; jamming hides output and admits no new data. Viewer/session loss or change, scene/model/config replacement clears history. Switching layers or reloading settings currently starts a new cache.
+
+A validated same-viewer policy revision can retain the already displayed frame during replacement. Its original expiry is unchanged, stale jobs cannot publish and it is labeled “updating known estimate.” This deliberately permits bounded presentation lag after a same-viewer roster change. Expired history, unresolved viewer, viewer/session/map/model change and jamming clear presentation. Repainting cannot resubmit a retained old-policy frame. Legacy keeps its strict revocation path and original numerical model.
+
+See [current acceptance](RUNTIME_VALIDATION_2026-10-24_V170.md). Earlier sections below describe the underlying layered model; this section supersedes older marker-only and immediate-soft-revocation descriptions.
+
 # Model semantics — 1.6.0
 
 Selected-layer field: each admitted native-marker observation has an observable role. Ground uses vehicles/air defense, airbases and reduced building support. AirThreat uses aircraft and publicly named SAM/SPAAG vehicles. NavalInfluence uses ships. Unknown roles contribute only to Legacy. Configured radii are heuristic. Capture admission, viewer-relative allegiance, native stale positions and immediate removal/context revocation retain1.5.3 rules.

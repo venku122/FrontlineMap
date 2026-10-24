@@ -1,73 +1,12 @@
 {
   "status": "blocked_measured_performance",
-  "reason": "Fresh exact-binary Core and Native passed; uncapped CPU-bound mean-frame overhead and dense moving two-player multiplayer failed predeclared criteria. Capped paired/live passed.",
-  "scenario_ids": [
-    "empty",
-    "sparse",
-    "dense",
-    "large-radius",
-    "mission/team-switch",
-    "full/minimap-zoom"
-  ],
-  "supported_resolutions_source": [
-    64,
-    512,
-    2048
-  ],
-  "target_validated_resolutions": [],
-  "main_thread_chunk_budget_ms": null,
-  "overshoot_allowance_ms": null,
-  "publication_cadence_s": null,
-  "maximum_computation_age_s": null,
-  "update_aligned_hitch_objective": null,
-  "cpu_gpu_memory_tradeoffs": null,
-  "numerical_tolerances": {
-    "absolute": 1e-09,
-    "relative": 1e-09,
-    "classification": "exact replay"
-  },
-  "visual_tolerance": null,
-  "trials": 3,
-  "completed_updates_per_trial": null,
-  "instrument_overhead": "Native diagnostic observer and bridge costs included; not isolated.",
-  "regression_thresholds": {
-    "uncapped_mean_frame_ratio_max": 1.1,
-    "dense_live_fps_min": 50,
-    "dense_p99_ms_max": 33.333
-  },
-  "provisional_settings_only": {
-    "compute_slice_ms": 2,
-    "interval_s": 5,
-    "max_age_s": 15
-  },
-  "selection_rationale": "512 remains recommended. Measured failures prohibit general release acceptance; no whole-game FPS improvement is claimed. 2048 remains stress only.",
+  "reason": "Core and bounded Native passed; predeclared uncapped and dense performance criteria failed.",
+  "implementation_commit": "24b816c2f61aa0b0843bf866bc2b68d7bb86c0ba",
+  "source_tree_sha256": "b10f09ce7efaad187fcfe952e7e41cf4010b88907d613a69ecaf1f45a99a0166",
+  "binary_sha256": "83926cde39bb04b94ff710d5903780ac5a48bdd51f01c8c24f897c7b82f31faa",
   "recommended_resolution": 512,
-  "stress_only_not_certified_resolutions": [
-    2048
-  ],
-  "historical_observed_resolutions": [
-    512
-  ],
-  "required_executable_gate": "scripts/validate.ps1 -Mode Performance -EvidenceDir <fresh-run>",
-  "historical_evidence": {
-    "directory": "artifacts/runtime-2026-10-20-v160-reverify",
-    "binary_sha256": "68ff5873c284f68984d7634f0c3a418042e0b41da32f257c5cda4462f288098c",
-    "scope": "Capped paused paired samples and capped live single-player Escalation on the recorded i9-10850K/RTX 3090 target; diagnostic overhead included",
-    "paused_mean_frame_ratio": 1.0003874601976686,
-    "live_present_rate_per_second": 59.42199515538826,
-    "live_p99_frame_ms": 21.7467,
-    "native_read_mean_ms": 0.984399098606946,
-    "availability_percent": 97.3029804351801
-  },
-  "unverified_acceptance": [
-    "2048 repeated-capture memory/performance certification",
-    "longer evolving soak on patched binary",
-    "other hardware/graphics/settings coverage"
-  ],
-  "source_commit": "47f2085b08b77556ed2dd004f37bfeb82d14a5f2",
-  "source_tree_sha256": "0f6a8c9812f7d6884ab367f3205f292eaf2fc689427348673313b80abb01c238",
-  "binary_sha256": "1b36b26c9c09dda167c39fef5cbb96f8bb3f1ebc118c7f30181cab27aed56f6b",
-  "native_validated_resolutions": [
+  "target_validated_resolutions": [],
+  "bounded_native_resolutions": [
     512
   ],
   "performance_passed": [
@@ -78,15 +17,67 @@
     "uncapped_cpu_bound",
     "moving_dense_multiplayer"
   ],
-  "current_evidence_directory": "artifacts/runtime-2026-10-22-v161",
-  "current_report": "../RUNTIME_VALIDATION_2026-10-22_V161.md",
-  "uncapped_cpu_bound": {
+  "performance_missing": [],
+  "capped": {
+    "status": "pass",
+    "accepted": true,
+    "checks": {
+      "pausedMean": true,
+      "pausedP99": true,
+      "liveMean": true,
+      "liveP99": true,
+      "liveStutters": true,
+      "nativeReadMean": true,
+      "nativeReadP99": true,
+      "availability": true,
+      "recomputeGap": true
+    },
+    "failed_checks": [],
+    "criteria": {
+      "pausedMeanFrameRatioMax": 1.05,
+      "pausedP99RatioMax": 1.2,
+      "pausedP99AbsoluteAllowanceMs": 3,
+      "liveMeanPresentRateMin": 55,
+      "liveP99FrameMaxMs": 33.333,
+      "liveOver50msPercentMax": 0.5,
+      "nativeReadMeanMaxMs": 2,
+      "nativeReadP99MaxMs": 4,
+      "liveAvailabilityMinPercent": 80,
+      "liveLongestRecomputeGapMaxSeconds": 5
+    },
+    "raw_flags": {
+      "pausedMean": true,
+      "pausedP99": true,
+      "liveMean": true,
+      "liveP99": true,
+      "liveStutters": true,
+      "nativeReadMean": true,
+      "nativeReadP99": true,
+      "availability": true,
+      "recomputeGap": true
+    },
+    "present_rate": 59.37330021054588,
+    "availability_percent": 100.0,
+    "paused_median_frame_ms": {
+      "on": 16.72711291946309,
+      "off": 16.657221971595657
+    },
+    "paused_median_p99_ms": {
+      "on": 20.6312,
+      "off": 19.1361
+    }
+  },
+  "uncapped": {
     "status": "failed",
+    "accepted": false,
     "checks": {
       "meanFrame": false,
       "p99": true,
       "cpuBoundDemonstrated": true
     },
+    "failed_checks": [
+      "meanFrame"
+    ],
     "criteria": {
       "topThreadCoreEquivalentMin": 0.85,
       "meanFrameRatioMax": 1.1,
@@ -94,16 +85,27 @@
       "cpuToGpuBusyRatioMin": 1.25,
       "minimumPresentRate": 90
     },
+    "raw_flags": {
+      "meanFrame": false,
+      "p99": true,
+      "cpuBoundDemonstrated": true
+    },
+    "cpu_bound_trials": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
     "mean_frame_ms": {
-      "True": 8.696120593368237,
-      "False": 7.455675989544436
+      "True": 9.690342051531356,
+      "False": 8.766127636203866
     },
     "p99_frame_ms": {
-      "True": 12.6816,
-      "False": 10.1599
-    },
-    "path": "uncapped-result.json",
-    "sha256": "f8d0c087a5dbb19dd1dbd85ae9025b6a6443aa01bdc06da4cb6a6505335c107a"
+      "True": 14.1644,
+      "False": 13.9541
+    }
   },
   "dense_multiplayer": {
     "status": "failed",
@@ -111,27 +113,6 @@
     "cases": [
       {
         "view": "full",
-        "success": false,
-        "checks": {
-          "workload": true,
-          "motion": true,
-          "frames": false,
-          "p99": true,
-          "stutters": true,
-          "availability": true,
-          "gap": true
-        },
-        "failed_checks": [
-          "frames"
-        ],
-        "present_rate": 43.968100022874964,
-        "p99_ms": 32.9828,
-        "availability_percent": 100.0,
-        "minimum_units": 1063,
-        "minimum_admitted": 392
-      },
-      {
-        "view": "cockpit",
         "success": false,
         "checks": {
           "workload": true,
@@ -146,14 +127,68 @@
           "frames",
           "p99"
         ],
-        "present_rate": 38.597594692505645,
-        "p99_ms": 41.5577,
-        "availability_percent": 90.64824654622741,
-        "minimum_units": 1065,
-        "minimum_admitted": 395
+        "present_rate": 39.13558680591255,
+        "p99_ms": 36.3378,
+        "availability_percent": 100.0,
+        "minimum_units": 1063,
+        "minimum_admitted": 401
+      },
+      {
+        "view": "cockpit",
+        "success": false,
+        "checks": {
+          "workload": true,
+          "motion": true,
+          "frames": false,
+          "p99": false,
+          "stutters": false,
+          "availability": true,
+          "gap": true
+        },
+        "failed_checks": [
+          "frames",
+          "p99",
+          "stutters"
+        ],
+        "present_rate": 38.41562088215302,
+        "p99_ms": 40.4265,
+        "availability_percent": 100.0,
+        "minimum_units": 1064,
+        "minimum_admitted": 401
       }
     ],
     "scope": "Two loopback UDP players, live >=1000-unit mission, >=300 admitted host contacts, 512 grid, twenty seconds each full/cockpit view with production map motion; diagnostic observer overhead included. No certification of larger sessions, 2048 grids or other hardware.",
-    "note": "A relative on/off diagnosis cannot erase failure of these predeclared absolute criteria."
-  }
+    "note": "A relative on/off diagnosis cannot erase failure of these predeclared absolute criteria.",
+    "criteria": {
+      "minimumUnits": 1000,
+      "minimumAdmitted": 300,
+      "players": 2,
+      "livePresentRateMin": 50,
+      "p99FrameMaxMs": 33.333,
+      "over50msPercentMax": 0.5,
+      "availabilityMinPercent": 80,
+      "maximumGapSeconds": 5
+    },
+    "raw_flags": [
+      {
+        "workload": true,
+        "motion": true,
+        "frames": false,
+        "p99": false,
+        "stutters": true,
+        "availability": true,
+        "gap": true
+      },
+      {
+        "workload": true,
+        "motion": true,
+        "frames": false,
+        "p99": false,
+        "stutters": false,
+        "availability": true,
+        "gap": true
+      }
+    ]
+  },
+  "scope": "512 grid, current target hardware, two loopback UDP players. No2048/VR/other hardware or general FPS improvement claim. Diagnostic observer overhead included."
 }

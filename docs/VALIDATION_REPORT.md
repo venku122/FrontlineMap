@@ -1,10 +1,8 @@
 # Validation and readiness
 
-The current **1.6.1 development candidate has Core and bounded Native acceptance passing; Performance and combined Readiness are blocked by measured failures**. The uncapped CPU-bound comparison exceeded its10% mean-frame overhead limit (8.696ms enabled versus7.456ms disabled). Dense moving UDP multiplayer missed its50FPS target in both views; cockpit p99 also exceeded33.333ms. Criteria were declared before measurement and remain unchanged.
+The1.7.0 development candidate passes Core and bounded Native acceptance. **Performance and combined Readiness remain blocked by measured uncapped CPU-bound overhead and dense moving multiplayer failures.** Capped paired/live criteria pass; no FPS improvement or general release readiness is claimed.
 
-See [the October22 exact-binary report](RUNTIME_VALIDATION_2026-10-22_V161.md), [machine-readable current readiness](benchmarks/LATEST_READINESS.json), and [performance acceptance](benchmarks/ACCEPTANCE.json). Tested product commit `47f2085b08b77556ed2dd004f37bfeb82d14a5f2`, DLL SHA256 `1b36b26c9c09dda167c39fef5cbb96f8bb3f1ebc118c7f30181cab27aed56f6b`; later documentation commits preserve that product fingerprint. The retained local evidence directory is `artifacts/runtime-2026-10-22-v161`.
-
-512 remains recommended. 2048 remains uncertified. Capped tests passed but do not establish uncapped headroom or support across hardware/settings. Older October18–20 reports are historical evidence for their recorded binaries, not current acceptance. [Target identity](compatibility/TARGET.md) records observed build metadata and the unresolved public version-label difference.
+See [October24 exact-binary validation](RUNTIME_VALIDATION_2026-10-24_V170.md), [readiness](benchmarks/LATEST_READINESS.json), and [performance acceptance](benchmarks/ACCEPTANCE.json). Tested implementation24b816c, product fingerprintb10f09ce, DLL83926cde…f31faa.512 remains recommended;2048 remains uncertified. Older reports remain historical evidence for their recorded binaries.
 
 ## Executable gates
 

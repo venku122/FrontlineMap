@@ -1,7 +1,12 @@
-# FrontlineMap 1.6.1 development candidate
-Estimated influence from player-visible Nuclear Option map observations. Blue friendly support, red hostile support, purple balanced support, gold opposing-support boundaries. Unsupported space means no admitted modeled support, not safety or empty territory. Influence weights are heuristic, not weapon coverage or ownership.
+# FrontlineMap 1.7.0 development candidate
+Estimated influence from authorized Nuclear Option team information and copied last-known enemy observations. Blue friendly support, red hostile support, purple balanced support, gold opposing-support boundaries. Unsupported space means no admitted modeled support, not safety or empty territory. Influence weights are heuristic, not weapon coverage or ownership.
 
-This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has been loaded and exercised in an authorized isolated game copy; **performance acceptance is blocked** by uncapped and dense multiplayer measurements. Read [current validation](docs/RUNTIME_VALIDATION_2026-10-22_V161.md), docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
+This branch builds against inspected Steam build 24724372, BepInEx5/net472. It has been loaded and exercised in an authorized isolated game copy; **performance acceptance is blocked** by uncapped and dense multiplayer measurements. Read [current validation](docs/RUNTIME_VALIDATION_2026-10-24_V170.md), docs/VALIDATION_REPORT.md and docs/KNOWN_LIMITATIONS.md before testing. No FPS improvement is claimed.
+
+## Contact continuity (1.7.0)
+Friendly coverage uses the viewer’s synchronized faction roster and own airbases, including distant support and icons hidden by cosmetic filters. It estimates influence around those assets; the game does not expose authoritative territory ownership here.
+
+Previously admitted enemy contacts retain their last authorized position. Confidence and intensity decay with original simulation age (120-second half-life,900-second maximum by default); hidden movement, allegiance and death do not refresh history. The full-map legend identifies historical contacts. While replacement work runs, an existing same-viewer estimate may remain labeled “updating known estimate” until its original expiry. Invalid contexts and viewer/session/model changes clear output; jamming hides output and stops acquisition. See [semantics](docs/MODEL_SEMANTICS.md).
 
 ## Layered model (1.6.0)
 Ground control is the default. Use the five buttons along the bottom of the full map or `Model.Layer` to select GroundControl, AirThreat, NavalInfluence, Confidence or Legacy. Aircraft and ships cannot claim ground. Buildings supply limited local support. Ground and naval paths follow a cached coarse public terrain grid; air influence stays radial. Unknown terrain blocks propagation. Stale native observations lose half their influence/confidence every120 simulation seconds by default. Blank space means insufficient admitted support.

@@ -1,12 +1,19 @@
-# 1.6.0 limitations
+# 1.7.0 limitations and release acceptance
 
-- Role radii, support weights and confidence are heuristics, not actual combat or ownership probabilities.
-- Coarse public terrain sampling can omit narrow crossings; unknown cells block influence. Surface ships ignore seabed slope; draft, currents and game navmesh are not modeled.
-- Air threat has no weapon-specific range, altitude or LOS. Air-defense identification uses native public unit names(SAM/SPAAG).
-- Selected-layer computation saves memory relative to simultaneous four-layer fields but layered jobs add raw/confidence buffers and terrain path work versus Legacy. No unconditional FPS gain is claimed.
-- Native knowledge revocation remains immediate and can briefly hide output during recomputation. Stale confidence updates at capture cadence.
-- More than8192 contour segments uses the contested band only. Schema2 exports omit terrain and cannot be replayed by the Legacy tool.
-- Physical keyboard/mouse/DPI/VR hardware item5 remains excluded from testing by user request.
+See [current exact-binary report](RUNTIME_VALIDATION_2026-10-24_V170.md) and [machine-readable readiness](benchmarks/LATEST_READINESS.json).512 remains recommended;2048 peak memory and broad multiplayer/hardware acceptance remain uncertified. No FPS improvement or general-release readiness is claimed.
+
+- Support weights, ranges and territory are estimates. Team roster information is not a game-owned territory map. Air threat omits weapon-specific range, altitude and LOS; terrain is a coarse public sample, not a navigation mesh.
+- Last-known enemies are deliberately not updated from hidden live state, including destruction or allegiance. History fades by simulation age; defaults120-second half-life,900-second expiry,4096-contact FIFO capacity.
+- During same-viewer recomputation the old estimate may remain until its original presentation expiry (default15 seconds), explicitly labeled. It can temporarily include recently removed own support. Invalid/new viewer/session contexts, jamming and expired history cannot use that fallback.
+- Layer/settings reload clears contact history. Jamming hides the map; recovery can reuse unexpired copied history. Unsupported multi-faction or unresolved/spectator contexts hide it.
+- Unknown terrain blocks propagation. Below50% known coverage, ground/naval terrain layers explain unavailability; radial fallback requires explicit user selection. Narrow crossings can be missed.
+-8192 contour segments is the vector ceiling; excess uses the contested band. Rigid pan/rotation reuses geometry; projected scale changes rebuild it.
+- The2ms scheduler target excludes full observation validation, terrain setup, native upload and UI work. Read the measured uncapped/dense acceptance results before assuming headroom.
+- Stale-but-still-tracked visible-marker metadata mutations need additional native coverage; lost-tracking hidden-metadata tests are narrower. See the current report.
+- Physical keyboard/mouse/DPI/VR hardware item5 remains excluded by user request. Native RPC/synthetic UI tests do not certify those hardware paths.
+- Schema2 layered exports now include sanitized cached terrain and support independent replay. The Legacy runner intentionally rejects layered exports without layered mode.
+
+Earlier limitations below are historical and are superseded by the current report and semantics where they disagree.
 
 ## Historical limitations
 

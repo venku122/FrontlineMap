@@ -27,10 +27,10 @@ Normal installed FrontlineMap stays uninstalled. No hidden-unit live reads for h
 - [x] Add new native regression cases and reproduce friendly cosmetic flashing on1.6.1.
 - [x] Expand layered adapter to own-team roster/airbases; retain enemy copies; preserve Legacy source.
 - [x] Separate presentation reset from historical cache destruction and expose validated history configuration/legend.
-- [ ] Run core/replay, review source boundaries and regression cases; fix failures before candidate build.
-- [ ] Build/hash candidate and bridge, execute native cosmetic, hidden-motion/death, history, reacquisition and lifecycle tests.
-- [ ] Execute both-map host/client and bounded availability/performance/resource comparisons; record exact workload and outcomes.
-- [ ] Update original to-do checklist and evidence/readiness docs with actual outcomes, commit and push to fork.
+- [x] Run core/replay, review source boundaries and regression cases; fix failures before candidate build.
+- [x] Build/hash candidate and bridge, execute native cosmetic, hidden-motion/death, history, reacquisition and lifecycle tests.
+- [x] Execute both-map host/client and bounded availability/performance/resource comparisons; record exact workload and outcomes.
+- [x] Update original to-do checklist and evidence/readiness docs with actual outcomes, commit and push to fork.
 
 Files: src/Core/ContactMemory.cs; tests/FrontlineMap.Core.Tests/ContactMemoryTests.cs; src/Game/GameObservationAdapter.cs; Plugin.cs; tests/native/FrontlineMapAcceptanceTests.cs; tests/native/FrontlineMapLayeredTests.cs; tests/native/FrontlineMapRuntimeTests.cs; native follow-up harness; version/docs as needed. Core tests precede memory implementation; native fixtures precede adapter changes. Root owns game launches and shared adapter/plugin integration. Independent agents may audit source or implement only explicitly assigned pure files.
 
@@ -40,8 +40,20 @@ Baseline242 core tests passed. Pure history now has36 additional tests, total278
 
 ## Remaining live refresh correction
 
-- [ ] Red/green tests for explicit same-viewer policy revision retaining original displayed knowledge without extending expiry.
-- [ ] Independently track viewer identity, keep expired-history and hard-context cancellation, and label retained output.
-- [ ] Rerun native publication race, view/team boundaries and live availability on the revised exact binary.
+- [x] Red/green tests for explicit same-viewer policy revision retaining original displayed knowledge without extending expiry.
+- [x] Independently track viewer identity, keep expired-history and hard-context cancellation, and label retained output.
+- [x] Rerun native publication race, view/team boundaries and live availability on the revised exact binary.
 
 The b655120s run measured96.484% availability, three real cohort revocations and1.556s longest gap. Those results motivated this correction; do not present them as acceptance of the next binary.
+
+## Native tracked items
+
+The active execution goal owns implementation and delivery. Separate native Codex chats hold read-only acceptance review for each requested item:
+
+- Friendly flashing: `01a16c4f-dca7-7c10-85cd-6273c5c19a4f`.
+- Team-wide friendly coverage: `01a16c4f-ee15-7f13-be63-725b9fecd9d6`.
+- Fading enemy history: `01a16c4f-fa3b-72f0-98ba-f3f52e904fca`.
+
+They do not deploy or duplicate implementation. Final status and measured release limits are recorded in the October24 validation report.
+
+Final execution:294 core tests,15 readiness fixtures,9/11 replay fixtures and bounded Native passed. Capped/live performance passed; uncapped/dense failed declared thresholds and remain release blockers. See docs/RUNTIME_VALIDATION_2026-10-24_V170.md. Delivery/push verification is recorded with the package manifest.

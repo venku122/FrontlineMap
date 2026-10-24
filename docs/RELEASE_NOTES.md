@@ -1,3 +1,13 @@
+# 1.7.0 contact continuity — 2026-10-24
+
+- Admit friendly support from the assigned viewer’s synchronized faction roster and own airbases, independently of cosmetic map-icon filtering.
+- Retain bounded copies of previously admitted enemy observations. Preserve the original last-known position and simulation timestamp; never follow hidden movement, ownership or destruction.
+- Fade stale support/confidence with the configured half-life (120 simulation seconds by default), then expire history at900 seconds. Capacity is4096 contacts; zero history lifetime disables retention.
+- Keep an already displayed same-viewer estimate while its replacement computes, label it “updating known estimate,” and preserve its original expiry. Viewer/session/map/model changes, invalid contexts, jamming and expired history still clear output.
+- Preserve Legacy admission/numerics. Add portable history/publication tests and native roster, cosmetic filtering, hidden-world invariance, lifecycle and timed-history evidence.
+
+This is a development candidate. See [exact-binary validation](RUNTIME_VALIDATION_2026-10-24_V170.md) for measured acceptance and remaining limits. Normal-game installation remains unmodified.
+
 # 1.6.1 adversarial review remediation — 2026-10-21
 
 - Validate admissions every frame; defer observation materialization until terrain readiness and capture cadence.
