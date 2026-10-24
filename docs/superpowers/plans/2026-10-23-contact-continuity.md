@@ -37,3 +37,11 @@ Files: src/Core/ContactMemory.cs; tests/FrontlineMap.Core.Tests/ContactMemoryTes
 ## Evidence so far (prototype, not final acceptance)
 
 Baseline242 core tests passed. Pure history now has36 additional tests, total278. Native1.6.1 red: disabling389 friendly icon images changed policy1→2 and cleared displayed output. Prototype1.7.0 green: same cosmetic change preserved policy/display; frame probe observed514 displayed frames, zero hidden frames. Native cached-position grace, tracking loss, hidden metadata/movement/death, reacquisition, ownership and friendly death contracts passed. Final-source attestation, lifecycle/roster/both-view/multiplayer/performance evidence remain pending.
+
+## Remaining live refresh correction
+
+- [ ] Red/green tests for explicit same-viewer policy revision retaining original displayed knowledge without extending expiry.
+- [ ] Independently track viewer identity, keep expired-history and hard-context cancellation, and label retained output.
+- [ ] Rerun native publication race, view/team boundaries and live availability on the revised exact binary.
+
+The b655120s run measured96.484% availability, three real cohort revocations and1.556s longest gap. Those results motivated this correction; do not present them as acceptance of the next binary.

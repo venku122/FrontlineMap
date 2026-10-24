@@ -23,6 +23,7 @@ namespace FrontlineMap.Runtime
         {
             get; private set;
         }
+        public bool RetainingPreviousKnowledge { get; private set; }
         public long PublishedCount
         {
             get; private set;
@@ -55,6 +56,26 @@ namespace FrontlineMap.Runtime
             if (Displayed != null && now >= Displayed.Snapshot.ExpiresAt)
                 ClearShown();
         }
+        // A same-viewer knowledge revision may keep the last complete estimate until
+        // its original expiry. It cannot authorize old-policy computation or publication.
+        public void ReviseKnowledge(SnapshotIdentity identity, double now, bool sameViewer)
+        {
+            bool retain = sameViewer && valid && Displayed != null && shown != null
+                && context.Session == identity.Session && context.Map == identity.Map
+                && context.Model == identity.Model && ModelSettings.Finite(now)
+                && now >= 0 && now < Displayed.Snapshot.ExpiresAt;
+            if (!retain)
+            {
+                // Force cancellation even when all identity values happen to match:
+                // the caller's viewer guard is an independent authorization boundary.
+                Cancel(InvalidationReason.Map);
+                SetContext(identity, now, true);
+                return;
+            }
+            scheduler.Cancel();
+            context = identity;
+            RetainingPreviousKnowledge = true;
+        }
         public void Submit(ObservationSnapshot snapshot, ModelSettings settings, double width, double height)
         {
             if (!valid || !context.SameContext(snapshot.Identity))
@@ -63,7 +84,7 @@ namespace FrontlineMap.Runtime
         }
         public void Repaint(ModelSettings settings, double width, double height)
         {
-            if (valid && Displayed != null)
+            if (valid && Displayed != null && !RetainingPreviousKnowledge)
                 scheduler.BeginRepaint(Displayed, settings, width, height);
         }
         public void Tick(double now, double deadline)
@@ -96,6 +117,7 @@ namespace FrontlineMap.Runtime
                 shown = staged;
                 staged = null;
                 Displayed = result;
+                RetainingPreviousKnowledge = false;
                 lastSequence = result.Snapshot.Identity.Sequence;
                 PublishedCount++;
                 if (old != null)
@@ -115,6 +137,7 @@ namespace FrontlineMap.Runtime
         }
         private void ClearShown()
         {
+            RetainingPreviousKnowledge = false;
             view.Clear();
             var old = shown;
             shown = null;

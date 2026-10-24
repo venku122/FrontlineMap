@@ -19,6 +19,8 @@ namespace FrontlineMap.Game
         private int knowledgeViewer;
         public int HistoricalContactCount { get; private set; }
         public int RetainedContactCount => history.Count;
+        public int ViewerIdentity => knowledgeViewer;
+        public bool HistoryExpiredThisRead { get; private set; }
         public GameObservationAdapter(double airbase, double ship, double vehicle, double aircraft, double building)
             : this(airbase, ship, vehicle, aircraft, building, false, 0) { }
         public GameObservationAdapter(double airbase, double ship, double vehicle, double aircraft, double building, bool teamKnowledge, double maximumHistoryAge)
@@ -57,7 +59,9 @@ namespace FrontlineMap.Game
             { var hq = FactionRegistry.HQFromFaction(faction); if (hq != null) hqs.Add(hq); }
             if (hqs.Count != 2 || !hqs.Contains(viewer)) { Clear(); failure = CaptureFailure.UnsupportedFactions; return false; }
             double now = Time.timeSinceLevelLoad;
+            int retainedBeforePrune = history.Count;
             history.Prune(now);
+            HistoryExpiredThisRead = history.Count < retainedBeforePrune;
             if (capture) native.Clear();
             currentUnits.Clear(); admissions.Begin(viewer.GetInstanceID());
             StaleContactCount = HistoricalContactCount = 0;
@@ -243,6 +247,7 @@ namespace FrontlineMap.Game
         public void Clear()
         {
             StaleContactCount = HistoricalContactCount = 0;
+            HistoryExpiredThisRead = false;
             knowledgeViewer = 0;
             history.Clear();
             currentUnits.Clear();

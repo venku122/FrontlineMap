@@ -23,6 +23,7 @@ namespace FrontlineMap
         private readonly Stopwatch clock = Stopwatch.StartNew();
         private string geometryKey, lastFailure;
         private long admissionKey = -1;
+        private int admissionViewer;
         private long session = 1, mapRevision, policyRevision, sequence;
         private bool visible = true, diagnostics, exportSnapshots;
         private string exportDirectory;
@@ -158,6 +159,7 @@ namespace FrontlineMap
             renderer?.Dispose();
             geometryKey = null;
             admissionKey = -1;
+            admissionViewer = 0;
             nextCapture = 0;
         }
         bool TryRead(out MapBinding binding, out ObservationStamp[] stamps, bool capture = false)
@@ -196,9 +198,15 @@ namespace FrontlineMap
             }
             if (admissionKey != key)
             {
-                controller.Cancel(InvalidationReason.Team);
+                int viewer = adapter.ViewerIdentity;
+                bool sameViewer = viewer != 0 && admissionViewer == viewer;
                 admissionKey = key;
+                admissionViewer = viewer;
                 policyRevision++;
+                if (settings.Tactical.Layer != TacticalLayer.Legacy && sameViewer && !adapter.HistoryExpiredThisRead)
+                    controller.ReviseKnowledge(Identity(), Now, true);
+                else
+                    controller.Cancel(InvalidationReason.Team);
                 nextCapture = 0;
             }
             renderer.Binding = binding;
@@ -311,6 +319,7 @@ namespace FrontlineMap
                 : layer == TacticalLayer.NavalInfluence ? "Naval influence estimate" : layer == TacticalLayer.Confidence ? "Ground information confidence" : "Legacy combined influence";
             string status = result == null ? (controller.Busy ? "Computing..." : "Waiting for permitted data...")
                 : "snapshot age " + (Now - result.Snapshot.CapturedAt).ToString("F1") + "s" + (controller.Busy ? " | refreshing" : "");
+            if (controller.RetainingPreviousKnowledge) status += " | updating known estimate";
             if (terrainCoverageUnavailable) status = "Layer unavailable: insufficient terrain coverage";
             string labels = layer == TacticalLayer.Confidence ? "Green: fresher known support | amber: older | blank: insufficient support"
                 : "<color=#" + appearance.Friendly + ">Friendly</color>  <color=#" + appearance.Enemy + ">Hostile</color>  <color=#" + appearance.Balanced + ">Contested</color>  <color=#" + appearance.Front + ">Higher-confidence front</color>";
