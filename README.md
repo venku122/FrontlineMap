@@ -12,6 +12,8 @@ Ground vehicles default6000m, airbases8000m, buildings2000m with0.15 control mul
 
 See [model semantics](docs/MODEL_SEMANTICS.md) and [1.6.0 local validation](docs/RUNTIME_VALIDATION_2026-10-19_V160.md). Previous1.5.3 measurements below are historical evidence, not1.6.0 performance claims.
 
+Follow-up playtest feedback and deferred work: [October23 to-dos](docs/FOLLOW_UP_TODOS.md).
+
 ## Changes
 Version 1.6.1 repairs terrain initialization capture allocation and off-center source influence, caches terrain connectivity, reuses contour meshes through rigid map movement, and adds explicit sparse-terrain fallback plus independent layered replay and hash-bound readiness gates. 512 remains recommended; high-resolution and broader multiplayer acceptance remain open.
 
