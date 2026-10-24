@@ -1,6 +1,6 @@
 # Follow-up to-dos — in-game feedback, October 23, 2026
 
-Status: saved for a later follow-up; no behavior changes requested for this session. Feedback is from the user's normal NOMM-managed installation running FrontlineMap1.6.1. After the loader correction and restart, the user confirmed both the F1 mod menu and FrontlineMap were working.
+Status: execution in progress under the user-requested active goal. See [implementation checklist](superpowers/plans/2026-10-23-contact-continuity.md). Feedback is from the user's normal NOMM-managed installation running FrontlineMap1.6.1. After the loader correction and restart, the user confirmed both the F1 mod menu and FrontlineMap were working.
 
 ## 1. Stop repetitive friendly-side flashing
 

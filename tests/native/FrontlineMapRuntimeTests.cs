@@ -59,7 +59,8 @@ internal static class FrontlineMapRuntimeTests {
  var projected=overlay.transform.TransformPoint(new Vector3((float)(bounds.xMin+u*bounds.width),(float)(bounds.yMin+v*bounds.height),0));
  var a=RectTransformUtility.WorldToScreenPoint(camera,projected);var b=RectTransformUtility.WorldToScreenPoint(camera,marker.iconImage.transform.position);
  maximumError=Math.Max(maximumError,Vector2.Distance(a,b)); }
- return new{success=missing==0 && maximumError<.1,admitted,missingNativeMarkers=missing,maxLandmarkErrorPixels=maximumError,raycastTarget=overlay.raycastTarget,overlaySibling=overlay.transform.GetSiblingIndex(),zoom=m.GetZoomLevel(),mapMaximized=DynamicMap.mapMaximized};
+ bool expanded=Get(Get(p,"adapter"),"RetainedContactCount")!=null && Get(Get(Get(p,"settings"),"Tactical"),"Layer").ToString()!="Legacy";
+ return new{success=(expanded||missing==0) && admitted>missing && maximumError<.1,admitted,missingNativeMarkers=missing,rosterOrHistoricalWithoutLandmark=expanded?missing:0,landmarks=admitted-missing,scope="Native map/overlay transform landmark alignment; expanded roster/history need not have visible icons. Not an oracle for snapshot contact positions.",maxLandmarkErrorPixels=maximumError,raycastTarget=overlay.raycastTarget,overlaySibling=overlay.transform.GetSiblingIndex(),zoom=m.GetZoomLevel(),mapMaximized=DynamicMap.mapMaximized};
  }
  public static object Action(string action) {
  var p=PluginInstance;

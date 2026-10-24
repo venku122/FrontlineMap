@@ -94,7 +94,9 @@ namespace FrontlineMap
                     Config.Bind("Weights", "Ship", 5f, "Heuristic support weight; F10 reload.").Value,
                     Config.Bind("Weights", "Vehicle", 3f, "Heuristic support weight; F10 reload.").Value,
                     Config.Bind("Weights", "Aircraft", .5f, "Heuristic support weight; F10 reload.").Value,
-                    Config.Bind("Weights", "Building", 4f, "Heuristic support weight; F10 reload.").Value);
+                    Config.Bind("Weights", "Building", 4f, "Heuristic support weight; F10 reload.").Value,
+                    selectedLayer != TacticalLayer.Legacy,
+                    HistoryMaximumAge());
                 var nextAppearance = new OverlayAppearance(
                     Config.Bind("Visual", "FriendlyColor", "419BF5", "Six RGB hex digits, optional #. F10 reload.").Value,
                     Config.Bind("Visual", "EnemyColor", "F05A46", "Six RGB hex digits, optional #. F10 reload.").Value,
@@ -108,7 +110,7 @@ namespace FrontlineMap
                 bool nextExports = Config.Bind("Diagnostics", "ExportSnapshots", false, "At most100 sanitized snapshots per process; contains permitted positions. F10 reload.").Value;
                 string nextDirectory = nextExports ? exportDirectory ?? System.IO.Path.Combine(Paths.BepInExRootPath, "FrontlineMap-replay", System.Guid.NewGuid().ToString("N")) : exportDirectory;
                 // All validation precedes replacement. Invalid changes retain the working model/resources.
-                if (!initial) Reset();
+                if (!initial) ResetKnowledge();
                 settings = nextSettings; adapter = nextAdapter; appearance = nextAppearance;
                 toggle = nextToggle; diagnostics = nextDiagnostics; exportSnapshots = nextExports; exportDirectory = nextDirectory;
                 modelRevision++;
@@ -122,6 +124,12 @@ namespace FrontlineMap
                 Logger.LogWarning(configurationError);
                 return false;
             }
+        }
+        double HistoryMaximumAge()
+        {
+            double age = Config.Bind("Confidence", "HistoryMaximumAgeSeconds", 900f, "Last-known enemy estimate lifetime in simulation seconds; 0 disables retention; no hidden movement is followed. F10 reload.").Value;
+            if (!ModelSettings.Finite(age) || age < 0 || age > 86400) throw new ArgumentOutOfRangeException("HistoryMaximumAgeSeconds");
+            return age;
         }
         void ConfigurationChanged(object sender, BepInEx.Configuration.SettingChangedEventArgs args) { reloadRequested = true; }
         void ConfigurationReloaded(object sender, EventArgs args) { reloadRequested = true; }
@@ -138,13 +146,15 @@ namespace FrontlineMap
         {
             session++;
             terrain.Clear();
-            Reset();
+            ResetKnowledge();
         }
-        void Reset()
+        void Reset() => ResetState(false);
+        void ResetKnowledge() => ResetState(true);
+        void ResetState(bool clearKnowledge)
         {
             terrainCoverageUnavailable = false;
             controller?.Cancel(InvalidationReason.Map);
-            adapter?.Clear();
+            if (clearKnowledge) adapter?.Clear(); else adapter?.ResetAdmissions();
             renderer?.Dispose();
             geometryKey = null;
             admissionKey = -1;
@@ -214,6 +224,7 @@ namespace FrontlineMap
                 return;
             try
             {
+                adapter.ValidateContext();
                 if (Input.GetKeyDown(KeyCode.F10))
                 {
                     try { Config.Reload(); reloadRequested = true; }
@@ -310,7 +321,7 @@ namespace FrontlineMap
                 : settings.Tactical.TerrainEnabled ? terrain.Status : "Terrain disabled; radial heuristic";
             if (terrainCoverageUnavailable) terrainStatus = terrain.Failed ? "Terrain sampling failed; choose radial fallback below"
                 : "Known terrain " + terrain.KnownCount + "/" + (terrain.Grid?.Geometry.Count ?? 0) + "; requires at least 50% coverage";
-            string text = title + " | " + status + "\n" + labels + "\nKnown stale contacts: " + adapter.StaleContactCount
+            string text = title + " | " + status + "\n" + labels + "\nKnown stale contacts: " + adapter.StaleContactCount + " | historical: " + adapter.HistoricalContactCount
                 + (snapshotStale ? " | snapshot includes last-known data" : "") + "\n" + terrainStatus + "\nF9: overlay | F10: reload";
             if (result != null && result.ContourLimited) text += " | Dense contour: contested band only";
             if (configurationError != null) text += "\nSettings rejected; previous configuration retained";
@@ -325,7 +336,7 @@ namespace FrontlineMap
         }
         void OnDisable()
         {
-            Reset();
+            ResetKnowledge();
         }
         void OnDestroy()
         {

@@ -26,7 +26,7 @@ namespace FrontlineMap.Diagnostics
             var g = snapshot.Geometry;
             var b = new StringBuilder();
             bool layered = settings.Tactical.Layer != TacticalLayer.Legacy;
-            b.Append("{\"schema\":").Append(layered ? 2 : 1).Append(",\"scope\":\"sanitized native-map observations\",\"resolution\":").Append(g.Columns)
+            b.Append("{\"schema\":").Append(layered ? 2 : 1).Append(",\"scope\":").Append(Quote(layered ? "authorized team roster, native contacts and copied last-known history" : "sanitized native-map observations")).Append(",\"resolution\":").Append(g.Columns)
              .Append(",\"radius\":").Append(Number(settings.Radius)).Append(",\"captured_at\":").Append(Number(snapshot.CapturedAt))
              .Append(",\"simulation_time\":").Append(Number(snapshot.SimulationTime)).Append(",\"bounds\":[")
              .Append(Number(g.MinX)).Append(',').Append(Number(g.MinZ)).Append(',').Append(Number(g.Width)).Append(',').Append(Number(g.Height)).Append(']');
